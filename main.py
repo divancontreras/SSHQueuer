@@ -1,39 +1,40 @@
+import base64
+import heapq
+import os
+import threading
+import time
+from datetime import datetime
+from importlib import reload
 from tkinter import *
 from tkinter import messagebox, ttk, filedialog
 from tkinter.font import Font
-
-import os
+import pickle
+from paramiko import SSHClient, AutoAddPolicy
 
 import config
-from importlib import reload
 from ProjectManClass import ProjectSim
-import base64
-from paramiko import SSHClient, AutoAddPolicy
-import threading
-from datetime import datetime
-import time
-import heapq
-import pickle
+
 
 class DDList():
     """ A Tkinter listbox with drag'n'drop reordering of entries. """
+
     def __init__(self, master, **kw):
         self.SortDir = True
         f = ttk.Frame(master)
-        f.pack(fill=BOTH , expand=True)
+        f.pack(fill=BOTH, expand=True)
         self.dataCols = ('Project Name', 'Status', 'Cores', 'Turn', 'Added date/time')
         self.tree = ttk.Treeview(columns=self.dataCols,
                                  show='headings')
         self.mouse_event = None
         self.moved_flag = False
-        ysb = ttk.Scrollbar(orient=VERTICAL, command= self.tree.yview)
+        ysb = ttk.Scrollbar(orient=VERTICAL, command=self.tree.yview)
         self.popup_menu = Menu(master, tearoff=0)
         self.popup_menu.add_command(label="Delete",
-                                    command= lambda: self.delete(self.mouse_event))
+                                    command=lambda: self.delete(self.mouse_event))
         self.popup_menu.add_command(label="Stop",
                                     command=lambda: self.do_kill_process(self.mouse_event))
         self.popup_menu.add_command(label="Pause",
-                                    command = lambda: self.do_pause_process(self.mouse_event))
+                                    command=lambda: self.do_pause_process(self.mouse_event))
         self.popup_menu.add_command(label="Resume",
                                     command=lambda: self.do_resume_process(self.mouse_event))
         self.tree['yscroll'] = ysb.set
@@ -93,13 +94,24 @@ class DDList():
             data_class.my_list.insert(obj.get_list())
         self._column_sort("Turn", False)
 
+    def project_running(self):
+        is_running = False
+        for listbox_entry in self.tree.get_children():
+            for proj in data_class.projects_queue:
+                if proj.name == self.tree.item(listbox_entry)['values'][0]:
+                    if proj.status == "Running":
+                        is_running = True
+        print('checker: ',is_running)
+        return is_running
+
+
     def adjust_queue_turn(self):
         turn = 0
         aux_list = []
         for listbox_entry in self.tree.get_children():
             for proj in data_class.projects_queue:
                 if proj.name == self.tree.item(listbox_entry)['values'][0]:
-                    if not proj.status == "Done":
+                    if proj.status == "Running" or proj.status == "Queued":
                         turn += 1
                         heapq.heappush(aux_list, [int(turn), self.tree.item(listbox_entry)['values'][0]])
                         proj.turn = turn
@@ -152,7 +164,7 @@ class DDList():
         # configure column headings
         for c in self.dataCols:
             self.tree.heading(c, text=c.title())
-                              # command=lambda c=c: self._column_sort(c, self.SortDir)
+            # command=lambda c=c: self._column_sort(c, self.SortDir)
             self.tree.column(c, width=Font().measure(c.title()))
 
         # add data to the tree
@@ -186,7 +198,7 @@ class Window(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
         self.master = master
-        self.connection_exist = False
+        data_class.connection_exist = False
         self.init_window()
         data_class.session = None
         self.cpu_number = 0
@@ -221,12 +233,12 @@ class Window(Frame):
         bottom_frame.grid(row=2, sticky="ew")
         self.master.grid_rowconfigure(1, weight=1)
         self.master.grid_columnconfigure(0, weight=1)
-        Label(top_frame, text="Queuer of Simulations",fg= "green", font=("Helvetica", 12)).grid(row=0, column=4)
-        Label(top_frame, text="Host:").grid(row=1,column=1, sticky = E)
+        Label(top_frame, text="Queuer of Simulations", fg="green", font=("Helvetica", 12)).grid(row=0, column=4)
+        Label(top_frame, text="Host:").grid(row=1, column=1, sticky=E)
         data_class.iplabel = Label(top_frame, text=config.host)
-        data_class.iplabel.grid(row=1, column=2, sticky = E)
-        Label(top_frame, text="Connection Status:").grid(row=2,column=1, sticky = W)
-        Label(top_frame, text="Queue Status:").grid(row=3,column=1, sticky = W)
+        data_class.iplabel.grid(row=1, column=2, sticky=E)
+        Label(top_frame, text="Connection Status:").grid(row=2, column=1, sticky=W)
+        Label(top_frame, text="Queue Status:").grid(row=3, column=1, sticky=W)
         data_class.status_label = Label(top_frame, text="Disconnected", fg="red")
         data_class.status_queue_label = Label(top_frame, text="Stopped", fg="red")
         data_class.status_label.grid(row=2, column=2, sticky=E)
@@ -245,10 +257,10 @@ class Window(Frame):
         data_class.cpu_list.append(Label(top_frame, text="--"))
         data_class.cpu_list[3].grid(row=3, column=7, sticky=W)
         Label(top_frame, text="RAM").grid(row=1, column=8, sticky=W)
-        Label(top_frame, text="total:").grid(row=2, column=8, sticky=E, padx=(10,0))
+        Label(top_frame, text="total:").grid(row=2, column=8, sticky=E, padx=(10, 0))
         data_class.ram_stats.append(Label(top_frame, text="--"))
         data_class.ram_stats[0].grid(row=2, column=9, sticky=W)
-        Label(top_frame, text="used:").grid(row=3, column=8, sticky=E, padx=(10,0))
+        Label(top_frame, text="used:").grid(row=3, column=8, sticky=E, padx=(10, 0))
         data_class.ram_stats.append(Label(top_frame, text="--"))
         data_class.ram_stats[1].grid(row=3, column=9, sticky=W)
         Label(top_frame, text="free:").grid(row=2, column=10, sticky=E)
@@ -258,10 +270,10 @@ class Window(Frame):
         data_class.ram_stats.append(Label(top_frame, text="--"))
         data_class.ram_stats[3].grid(row=3, column=11, sticky=W)
         Label(top_frame, text="Disk").grid(row=1, column=12, sticky=W)
-        Label(top_frame, text="total:").grid(row=2, column=12, sticky=E, padx=(10,0))
+        Label(top_frame, text="total:").grid(row=2, column=12, sticky=E, padx=(10, 0))
         data_class.disk_storage.append(Label(top_frame, text="--"))
         data_class.disk_storage[0].grid(row=2, column=13, sticky=W)
-        Label(top_frame, text="used:").grid(row=3, column=12, sticky=E, padx=(10,0))
+        Label(top_frame, text="used:").grid(row=3, column=12, sticky=E, padx=(10, 0))
         data_class.disk_storage.append(Label(top_frame, text="--"))
         data_class.disk_storage[1].grid(row=3, column=13, sticky=W)
         Label(top_frame, text="free:").grid(row=2, column=14, sticky=E)
@@ -271,10 +283,10 @@ class Window(Frame):
         data_class.disk_storage.append(Label(top_frame, text="--"))
         data_class.disk_storage[3].grid(row=3, column=15, sticky=W)
         data_class.my_list = DDList(center_frame, height=10)
-        Button(bottom_frame, text='Pause', command=self.donothing).pack(side=RIGHT, fill=Y, padx=(0,10))
+        Button(bottom_frame, text='Pause', command=self.donothing).pack(side=RIGHT, fill=Y, padx=(0, 10))
         Button(bottom_frame, text='Resume', command=self.donothing).pack(side=RIGHT, fill=Y)
         Button(bottom_frame, text='Delete', command=data_class.my_list.delete).pack(side=RIGHT, fill=Y)
-        Button(bottom_frame, text='Add', command=self.add_project).pack(side=LEFT,fill=Y, padx=(10,0))
+        Button(bottom_frame, text='Add', command=self.add_project).pack(side=LEFT, fill=Y, padx=(10, 0))
         data_class.status_button = Button(bottom_frame, text='Start Queue', command=self.toggle_queue_status)
         data_class.status_button.pack(side=LEFT)
         Label(bottom_frame, text="Queue Mode: Regular", bg="forest green").pack(side=LEFT, fill=Y)
@@ -283,8 +295,6 @@ class Window(Frame):
         if data_class.session.is_connected:
             if not data_class.queue_running:
                 print(data_class.heap_queue)
-                if len(data_class.heap_queue) == 0:
-                    self.gen_projects_queue()
                 data_class.queue_running = True
                 data_class.status_button.config(text="Stop Queue")
                 data_class.status_queue_label.config(text="Running", fg="green")
@@ -296,14 +306,10 @@ class Window(Frame):
         else:
             messagebox.showerror("Error", "Please connect before starting the queue.")
 
-    def gen_projects_queue(self):
-        for project in data_class.projects_queue:
-            if project.status != "Done":
-                heapq.heappush(data_class.heap_queue, [int(project.turn), project.name])
 
     def add_project(self):
         reload(config)
-        if self.connection_exist:
+        if data_class.connection_exist:
             if True:
                 targetpath = f"\\\\{config.host}\\Projects"
                 filepath = filedialog.askopenfilename(parent=root, filetypes=(("Script Files", "*.SCRIPT"),
@@ -331,20 +337,28 @@ class Window(Frame):
                         proj.status = "Running"
                         data_class.my_list.update()
                         data_class.task_done = False
-                        threading.Thread(target=data_class.session.start_project, args=(proj.bash_path, proj.name)).start()
+                        data_class.task_stopped = False
+                        threading.Thread(target=data_class.session.start_project,
+                                         args=(proj.bash_path, proj.name)).start()
                         break
             while True:
                 if data_class.task_done:
-                    proj.status = "Done"
-                    proj.turn = None
+                    if data_class.task_stopped:
+                        proj.status = "Canceled"
+                        proj.turn = None
+                    else:
+                        proj.status = "Done"
+                        proj.turn = None
+                    del data_class.name_mpid[proj.name]
+                    del data_class.name_pid[proj.name]
                     heapq.heappop(data_class.heap_queue)
                     data_class.my_list.adjust_queue_turn()
                     try:
                         data_class.my_list.update()
+                        print("BUUUUBAAA")
                     except:
                         return
                     break
-
 
     def add_to_queue(self, filepath, icont=0):
         """
@@ -353,7 +367,7 @@ class Window(Frame):
 
         with open(filepath, 'r') as doc:
             data = doc.read()
-            cores = data[data.find("-t")+2]
+            cores = data[data.find("-t") + 2]
             tofilename = filepath.split("/")[-1]
             filename = tofilename[:tofilename.find(".")]
             auxfilename = filename
@@ -362,7 +376,8 @@ class Window(Frame):
             icont += 1
             filename = f"{auxfilename} ({icont})"
 
-        new = ProjectSim(filename, filepath, cores, "Queued", self.count_queued_project(), datetime.now().strftime("%Y-%m-%d / %H:%M:%S"))
+        new = ProjectSim(filename, filepath, cores, "Queued", self.count_queued_project(),
+                         datetime.now().strftime("%Y-%m-%d / %H:%M:%S"))
         new.bash_path = self.bashify(filepath)
         print(new.bash_path)
         heapq.heappush(data_class.heap_queue, [int(self.count_queued_project()), filename])
@@ -371,19 +386,18 @@ class Window(Frame):
         data_class.my_list.update()
 
     def count_queued_project(self):
-        return len(data_class.heap_queue)+1
+        return len(data_class.heap_queue) + 1
 
     def bashify(self, filepath):
         filepath = filepath.split("/")
         newfilepath = ""
-        for i in range(len(filepath)-1, -1, -1):
-            if i == len(filepath)-1:
+        for i in range(len(filepath) - 1, -1, -1):
+            if i == len(filepath) - 1:
                 newfilepath = f"/{filepath[i]}"
             elif filepath[i].count(".") == 3:
                 return newfilepath
             else:
                 newfilepath = f"/{filepath[i]}" + newfilepath
-
 
     def is_repeated(self, data):
         for obj in data_class.projects_queue:
@@ -420,7 +434,8 @@ class Window(Frame):
         e3.grid(row=3, column=1)
 
         button1 = Button(top, text="Cancel", command=top.destroy)
-        button2 = Button(top, text="Connect", command=lambda: self.update_credentials(host.get(), user.get(), password.get(), top))
+        button2 = Button(top, text="Connect",
+                         command=lambda: self.update_credentials(host.get(), user.get(), password.get(), top))
         button1.grid(row=4, column=1, sticky=E, pady=4)
         button2.grid(row=4, column=2, sticky=W, padx=2, pady=4)
 
@@ -435,7 +450,7 @@ class Window(Frame):
             with open("config.py", "w") as sf:
                 sf.write(f"host = \"{host}\" \nuser = \"{user}\" \npassword = {encoded_password}")
             reload(config)
-            if self.connection_exist:
+            if data_class.connection_exist:
                 if data_class.session.is_connected:
                     self.disconnect()
             data_class.session = Session(config.host, config.user, base64.b64decode(config.password).decode())
@@ -447,11 +462,11 @@ class Window(Frame):
         top.destroy()
 
     def connect(self):
-        if not self.connection_exist:
+        if not data_class.connection_exist:
             data_class.status_label.config(text="Connecting...", fg="orange")
             os.system(f"net use x: \\\\{config.host}\\projects")
             data_class.session = Session(config.host, config.user, base64.b64decode(config.password).decode())
-            self.connection_exist = True
+            data_class.connection_exist = True
             t = threading.Thread(target=self.connect_via_ssh)
             t.start()
         else:
@@ -473,20 +488,32 @@ class Window(Frame):
         # SESSION OFF
         data_class.session.flag_stop = True
         data_class.status_label.config(text="Disconnected", fg="red")
-        self.connection_exist = False
+        data_class.connection_exist = False
         data_class.session.ssh.close()
         self.set_null()
 
     def connect_via_ssh(self):
         if data_class.session.assert_connection():
-            self.connection_exist = True
+            data_class.connection_exist = True
             data_class.status_label.config(text="Connected", fg="green")
             data_class.session.start_threads()
             self.cpu_number = data_class.session.get_cpu_num()
+            try:
+                with open("object.pickle", "rb") as f:
+                    aux_table = pickle.load(f)
+                    if data_class.host == aux_table[0]:
+                        data_class.heap_queue = aux_table[1]
+                        data_class.projects_queue = aux_table[2]
+                        data_class.data_table = aux_table[3]
+                data_class.my_list.update()
+            except:
+                pass
+
         else:
             self.disconnect()
             messagebox.showerror("Error", "Connection refused: check credentials and ip.")
             return
+
 
 class Session(Window):
     def __init__(self, host, user, password):
@@ -526,40 +553,41 @@ class Session(Window):
                     return False
 
     def start_project(self, filepath, filename):
-        path = filepath[1:filepath.rfind("/")]+"/"
-        true_filename = filepath[filepath.rfind("/")+1:]
+        path = filepath[1:filepath.rfind("/")] + "/"
+        true_filename = filepath[filepath.rfind("/") + 1:]
         print(f'./"{true_filename}"')
         print(path)
-        stdin, stdout, stderr = self.ssh.exec_command(f'cd {path} && ./"{true_filename}" & echo "pid:"$! && wait && echo "Command was completed"', get_pty=True)
+        stdin, stdout, stderr = self.ssh.exec_command(
+            f'cd {path} && ./"{true_filename}" & echo "pid:"$! && wait && echo "Command was completed"', get_pty=True)
         for response in iter(stdout.readline, ""):
-            print(str(response))
             if "pid" in response:
                 data_class.name_pid[filename] = int(response.split(":")[1])
-                data_class.session.get_mpid_byname(filename)
-
+                print(data_class.name_pid[filename])
             elif "Command was completed" in response:
-                print(f"Task terminada por {filename} ")
+                print(f'Task \"{filename}\" terminada por')
                 data_class.task_done = True
                 return
+            if filename not in data_class.name_mpid:
+                time.sleep(1)
+                self.get_mpid_byname(filename)
 
-    def pause_process(self , name):
-        print(f"NAME IT : {data_class.name_mpid}" )
+    def pause_process(self, name):
         self.ssh.exec_command(f'kill -SIGTSTP {data_class.name_mpid[name]}')
 
     def resume_process(self, name):
         self.ssh.exec_command(f'kill -SIGCONT {data_class.name_mpid[name]}')
 
     def kill_process(self, name):
-        self.ssh.exec_command(f'kill -SIGKILL {data_class.name_mpid[name]}')
+        self.ssh.exec_command(f'kill -SIGKILL {data_class.name_pid[name]}')
         data_class.task_stopped = True
 
     def get_mpid_byname(self, name):
         print(f'ps -p {data_class.name_pid[name]} -o ppid')
-        stdin, stdout, stderr = self.ssh.exec_command(f'ps -p {data_class.name_pid[name]} -o ppid', get_pty=True)
+        stdin, stdout, stderr = self.ssh.exec_command(f'pgrep mpid', get_pty=True)
         for mpid in iter(stdout.readline, ""):
-            print("THIS: "+ str(mpid))
-            if not "PPID" in mpid:
-                data_class.name_mpid[name] = int(mpid)
+            print("THIS IS MPID:" + str(mpid))
+            data_class.name_mpid[name] = int(mpid)
+            data_class.has_mpid = True
 
     def get_cpu_num(self):
         stdin, stdout, stderr = self.ssh.exec_command('grep -c ^processor /proc/cpuinfo', get_pty=True)
@@ -578,7 +606,7 @@ class Session(Window):
             if len(line) > 1:
                 if line[2].isdigit():
                     self.cpu_usage.append(line[3])
-                    if int(line[2]) == self.cpu_number-1:
+                    if int(line[2]) == self.cpu_number - 1:
                         self.update_gui_values(self.cpu_usage)
                         self.cpu_usage = []
         self.ssh.close()
@@ -591,37 +619,41 @@ class Session(Window):
                 break
             if "Mem:" in line:
                 line = line.split()
-                data_class.ram_stats[0].config(text=line[1]+"MB")
-                data_class.ram_stats[1].config(text=line[2]+"MB")
-                data_class.ram_stats[2].config(text=line[3]+"MB")
-                data_class.ram_stats[3].config(text=str(100*(int(line[2])/int(line[1])))[:5] +"%")
+                data_class.ram_stats[0].config(text=line[1] + "MB")
+                data_class.ram_stats[1].config(text=line[2] + "MB")
+                data_class.ram_stats[2].config(text=line[3] + "MB")
+                data_class.ram_stats[3].config(text=str(100 * (int(line[2]) / int(line[1])))[:5] + "%")
 
     def gen_disk_stats(self):
-        stdin, stdout, stderr = self.ssh.exec_command('df -h /home && while sleep 5; do df -h /home; done', get_pty=True)
+        stdin, stdout, stderr = self.ssh.exec_command('df -h /home && while sleep 5; do df -h /home; done',
+                                                      get_pty=True)
         for line in iter(stdout.readline, ""):
             if self.flag_stop:
                 break
             line = line.split()
-            if len(line)> 1:
+            if len(line) > 1:
                 if "G" in line[0]:
-                    data_class.disk_storage[0].config(text=line[0])
-                    data_class.disk_storage[1].config(text=line[1])
-                    data_class.disk_storage[2].config(text=line[2])
+                    data_class.disk_storage[0].config(text=line[0] + "B")
+                    data_class.disk_storage[1].config(text=line[1] + "B")
+                    data_class.disk_storage[2].config(text=line[2] + "B")
                     data_class.disk_storage[3].config(text=line[3])
                 elif "G" in line[1]:
-                    data_class.disk_storage[0].config(text=line[1])
-                    data_class.disk_storage[1].config(text=line[2])
-                    data_class.disk_storage[2].config(text=line[3])
+                    data_class.disk_storage[0].config(text=line[1] + "B")
+                    data_class.disk_storage[1].config(text=line[2] + "B")
+                    data_class.disk_storage[2].config(text=line[3] + "B")
                     data_class.disk_storage[3].config(text=line[4])
 
     def update_gui_values(self, values):
         for x in range(self.cpu_number):
             data_class.cpu_list[x].config(text=values[x])
 
+
 class GUIData():
     def __init__(self, user, host):
         self.user = user
         self.host = host
+        self.load = False
+        self.connection_exist = False
         self.cpu_list = []
         self.data_table = []
         self.heap_queue = []
@@ -633,9 +665,26 @@ class GUIData():
         self.queue_running = False
         self.task_stopped = False
 
+
+def on_closing():
+    if not data_class.queue_running and not data_class.my_list.project_running():
+        data_class.load = False
+        with open("object.pickle", "wb") as f:
+            aux_tuple = [data_class.host, data_class.heap_queue, data_class.projects_queue, data_class.data_table]
+            pickle.dump(aux_tuple, f)
+        if data_class.connection_exist:
+            data_class.session.ssh.close()
+        exit()
+    elif data_class.queue_running:
+        messagebox.showwarning("Warning", "Stop the queue before exiting the program.")
+    else:
+        messagebox.showwarning("Warning", "Wait for project to stop running before exiting.")
+
+
+
 if __name__ == "__main__":
     data_class = GUIData(config.user, config.host)
     root = Tk()
     app = Window(root)
+    root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
-
