@@ -9,6 +9,3 @@ class ProjectSim():
 
     def get_list(self):
         return (self.name, self.status, self.cores, self.turn, self.added_time)
-
-    def __repr__(self):
-        return f"{self.name}/{self.status}/{self.turn}"
