@@ -1,5 +1,6 @@
 # Local Imports
 import main
+import auxiliary_classes
 # External Imports
 from paramiko import SSHClient, AutoAddPolicy
 import time
@@ -26,11 +27,11 @@ class Session:
 
     def start_threads(self):
         threading.Thread(target=self.gen_cpu_stats).start()
-        main.global_data.progress.step(10)
+        auxiliary_classes.global_data.progress.step(10)
         threading.Thread(target=self.gen_ram_stats).start()
-        main.global_data.progress.step(10)
+        auxiliary_classes.global_data.progress.step(10)
         threading.Thread(target=self.gen_disk_stats).start()
-        main.global_data.progress.step(10)
+        auxiliary_classes.global_data.progress.step(10)
 
     def assert_connection(self):
         # force connection
@@ -55,19 +56,19 @@ class Session:
             print(response)
             if no_pid:
                 if "pid" in response:
-                    main.global_data.name_pid[file_name] = int(response.split(":")[1])
-                    print(main.global_data.name_pid[file_name])
+                    auxiliary_classes.global_data.name_pid[file_name] = int(response.split(":")[1])
+                    print(auxiliary_classes.global_data.name_pid[file_name])
                     no_pid = False
             if fix_permissions:
                 if "Permission denied" in response:
                     self.ssh.exec_command(F"cd {path} && chmod +x '{real_file_name}'")
                     self.start_project(file_path, file_name, False, False)
-                    if not main.global_data.task_done:
-                        main.global_data.task_denied = True
+                    if not auxiliary_classes.global_data.task_done:
+                        auxiliary_classes.global_data.task_denied = True
                     return
             if "Command was completed" in response:
                 print(f"Task \"{file_name}\" terminada por")
-                main.global_data.task_done = True
+                auxiliary_classes.global_data.task_done = True
                 return
 
     # def pause_process(self, name):
@@ -79,15 +80,15 @@ class Session:
     def stop_process(self, path):
         path = "."+path[:path.rfind('/')+1]
         self.ssh.exec_command(f'cd {path} && touch FDSTOP')
-        main.global_data.task_stopped = True
+        auxiliary_classes.global_data.task_stopped = True
 
     def get_mpid_byname(self, name):
-        print(f'ps -p {main.global_data.name_pid[name]} -o ppid')
+        print(f'ps -p {auxiliary_classes.global_data.name_pid[name]} -o ppid')
         stdin, stdout, stderr = self.ssh.exec_command(f'pgrep mpid', get_pty=True)
         for mpid in iter(stdout.readline, ""):
             print("THIS IS MPID:" + str(mpid))
-            main.global_data.name_mpid[name] = int(mpid)
-            main.global_data.has_mpid = True
+            auxiliary_classes.global_data.name_mpid[name] = int(mpid)
+            auxiliary_classes.global_data.has_mpid = True
 
     def get_cpu_num(self):
         stdin, stdout, stderr = self.ssh.exec_command('grep -c ^processor /proc/cpuinfo', get_pty=True)
@@ -97,8 +98,8 @@ class Session:
             return line
 
     def kill_process(self, name):
-        self.ssh.exec_command(f'kill -SIGKILL {main.global_data.name_pid[name]}')
-        main.global_data.task_canceled = True
+        self.ssh.exec_command(f'kill -SIGKILL {auxiliary_classes.global_data.name_pid[name]}')
+        auxiliary_classes.global_data.task_canceled = True
 
     def gen_cpu_stats(self):
         stdin, stdout, stderr = self.ssh.exec_command('mpstat -P ALL 1', get_pty=True)
@@ -123,10 +124,10 @@ class Session:
                 break
             if "Mem:" in line:
                 line = line.split()
-                main.global_data.ram_stats[0].config(text=line[1] + "MB")
-                main.global_data.ram_stats[1].config(text=line[2] + "MB")
-                main.global_data.ram_stats[2].config(text=line[3] + "MB")
-                main.global_data.ram_stats[3].config(text=str(100 * (int(line[2]) / int(line[1])))[:5] + "%")
+                auxiliary_classes.global_data.ram_stats[0].config(text=line[1] + "MB")
+                auxiliary_classes.global_data.ram_stats[1].config(text=line[2] + "MB")
+                auxiliary_classes.global_data.ram_stats[2].config(text=line[3] + "MB")
+                auxiliary_classes.global_data.ram_stats[3].config(text=str(100 * (int(line[2]) / int(line[1])))[:5] + "%")
 
     def gen_disk_stats(self):
         stdin, stdout, stderr = self.ssh.exec_command('df -h /home && while sleep 5; do df -h /home; done',
@@ -137,16 +138,16 @@ class Session:
             line = line.split()
             if len(line) > 1:
                 if "G" in line[0]:
-                    main.global_data.disk_storage[0].config(text=line[0] + "B")
-                    main.global_data.disk_storage[1].config(text=line[1] + "B")
-                    main.global_data.disk_storage[2].config(text=line[2] + "B")
-                    main.global_data.disk_storage[3].config(text=line[3])
+                    auxiliary_classes.global_data.disk_storage[0].config(text=line[0] + "B")
+                    auxiliary_classes.global_data.disk_storage[1].config(text=line[1] + "B")
+                    auxiliary_classes.global_data.disk_storage[2].config(text=line[2] + "B")
+                    auxiliary_classes.global_data.disk_storage[3].config(text=line[3])
                 elif "G" in line[1]:
-                    main.global_data.disk_storage[0].config(text=line[1] + "B")
-                    main.global_data.disk_storage[1].config(text=line[2] + "B")
-                    main.global_data.disk_storage[2].config(text=line[3] + "B")
-                    main.global_data.disk_storage[3].config(text=line[4])
+                    auxiliary_classes.global_data.disk_storage[0].config(text=line[1] + "B")
+                    auxiliary_classes.global_data.disk_storage[1].config(text=line[2] + "B")
+                    auxiliary_classes.global_data.disk_storage[2].config(text=line[3] + "B")
+                    auxiliary_classes.global_data.disk_storage[3].config(text=line[4])
 
     def update_gui_values(self, values):
         for x in range(self.cpu_number):
-            main.global_data.cpu_list[x].config(text=values[x])
+            auxiliary_classes.global_data.cpu_list[x].config(text=values[x])

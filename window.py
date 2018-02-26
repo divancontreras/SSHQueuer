@@ -20,6 +20,7 @@ class Window(Frame):
     def __init__(self, master=None):
         Frame.__init__(self ,master)
         self.master = master
+        self.master.iconbitmap(r'resources/app_pictogram_orC_icon.ico')
         auxiliary_classes.global_data.connection_exist = False
         auxiliary_classes.global_data.session = None
         self.master.withdraw()
@@ -27,6 +28,21 @@ class Window(Frame):
         self.init_window()
         self.cpu_number = 0
         self.queue_thread = threading.Thread()
+
+    def StartMove(self, event):
+        self.top.x = event.x
+        self.top.y = event.y
+
+    def StopMove(self, event):
+        self.top.x = None
+        self.top.y = None
+
+    def OnMotion(self, event):
+        deltax = event.x - self.top.x
+        deltay = event.y - self.top.y
+        x = self.top.winfo_x() + deltax
+        y = self.top.winfo_y() + deltay
+        self.top.geometry("+%s+%s" % (x, y))
 
     def ask_disconnection(self):
         result = messagebox.askquestion("Disconnect", "Are  you sure you want to disconnect?", icon='warning')
@@ -238,54 +254,6 @@ class Window(Frame):
         auxiliary_classes.global_data.my_list.insert(new.get_list())
         auxiliary_classes.global_data.my_list.update()
 
-    def enter_credentials_widget(self):
-        self.top = Toplevel(self.master)
-        self.top.geometry("676x480")
-        left_frame = Frame(self.top, width=376, height=480)
-        right_frame = Frame(self.top, width=300, height=480)
-        img = PhotoImage(file=r'Cover_Lines.png')
-        self.master.one = Label(left_frame, image=img)
-        self.master.one.photo = img
-        self.master.one.pack()
-        img = PhotoImage(file=r'LIO_SEGreen_Logo.png')
-        self.master.two = Label(right_frame, image=img)
-        self.master.two.photo = img
-        self.master.two.grid(row=8, column=1, columnspan=3, rowspan=3,
-               sticky=W+E+N+S, padx=5, pady=5)
-        auxiliary_classes.global_data.progress = ttk.Progressbar(self.top, length=100, value=0)
-        host = StringVar()
-        user = StringVar()
-        password = StringVar()
-        left_frame.grid(row=0,column=0)
-        right_frame.grid(row=0,column=4)
-        self.top.title("Connect to machine")
-        self.top.resizable(width=False, height=False)
-        Label(right_frame, text="Login Credentials", foreground="green", font=("Helvetica", 10, "bold")).grid(row=0, column=1)
-
-        host.set(config.host)
-        user.set(config.user)
-        password.set(base64.b64decode(config.password).decode())
-
-        e1 = ttk.Entry(right_frame, textvariable=host, font=('Arial', 16))
-        e2 = ttk.Entry(right_frame, textvariable=user, font=('Arial', 16))
-        e3 = ttk.Entry(right_frame, textvariable=password, font=('Arial', 16))
-
-        e3.config(show="*")
-
-        e1.grid(row=1, column=1, pady=5, padx=(20, 0))
-        e2.grid(row=2, column=1, pady=5, padx=(20, 0))
-        e3.grid(row=3, column=1, pady=5, padx=(20, 0))
-        auxiliary_classes.global_data.progress.grid(row=6, column=1, sticky="NSEW")
-        auxiliary_classes.global_data.progress.grid_remove()
-
-        button1 = ttk.Button(right_frame, text="Quit", command=quit)
-        auxiliary_classes.global_data.button2 = ttk.Button(right_frame, text="Connect",
-                                         command=lambda: self.update_credentials(host.get(),
-                                                                                 user.get(),
-                                                                                 password.get()))
-        button1.grid(row=4)
-        auxiliary_classes.global_data.button2.grid(row=5, sticky=W, padx=2)
-
     def connect_via_ssh(self):
         if auxiliary_classes.global_data.session.assert_connection():
             auxiliary_classes.global_data.progress.step(30)
@@ -305,6 +273,84 @@ class Window(Frame):
             auxiliary_classes.global_data.button2.config(state="normal")
             auxiliary_classes.global_data.progress.config(value=0)
             return
+
+    def enter_credentials_widget(self):
+        self.top = Toplevel(self.master)
+
+        # Removing bordes and adding motion
+        self.top.overrideredirect(1)
+        self.top.bind("<ButtonPress-1>", self.StartMove)
+        self.top.bind("<ButtonRelease-1>", self.StopMove)
+        self.top.bind("<B1-Motion>", self.OnMotion)
+
+        # Window size
+        self.top.geometry("676x480")
+
+        # Configuring Main window frames
+        left_frame = Frame(self.top, width=376, height=480)
+        right_frame = Frame(self.top, width=300, height=480)
+        left_frame.pack(side=LEFT)
+        right_frame.pack(side=RIGHT, fill=BOTH)
+        # Auxiliary right frames
+
+        r_top_frame = Frame(right_frame, width=300, height=40, bg="red")
+        r_entry_frame = Frame(right_frame, width=300, height=180, bg="yellow")
+        r_buttons_frame = Frame(right_frame, width=300, height=180, bg="green")
+        r_loading_frame = Frame(right_frame, width = 300,height =30, bg="blue")
+        r_footer_frame = Frame(right_frame, width=300, height=50, bg="orange")
+        r_top_frame.pack(fill= BOTH, pady=8)
+        r_entry_frame.pack(expand= True, fill=BOTH, pady=8)
+        r_buttons_frame.pack(expand= True, fill=BOTH, pady = 8)
+        r_loading_frame.pack(fill=BOTH, pady=8)
+        r_footer_frame.pack(fill=BOTH, pady= 8)
+        Style().configure('relief_flat', relief = FLAT)
+        exit_button = Button(r_top_frame, text="X", style='green/black.TButton')
+        exit_button.config(relief = FLAT)
+        exit_button.pack(side=RIGHT)
+        img = PhotoImage(file=r'resources\Cover_Lines.png')
+        self.master.one = Label(left_frame, image=img)
+        self.master.one.photo = img
+        self.master.one.pack(side=RIGHT, padx=(0,10))
+        img = PhotoImage(file=r'resources\LOGO_SE.png')
+        self.master.two = Label(r_footer_frame, image=img)
+        self.master.two.photo = img
+        self.master.two.grid(row=8, column=0, sticky= E, columnspan=2, rowspan=2, padx=5, pady=5)
+        auxiliary_classes.global_data.progress = ttk.Progressbar(r_loading_frame, length=100, value=0)
+        host = StringVar()
+        user = StringVar()
+        password = StringVar()
+        var = StringVar()
+        self.top.title("Connect to machine")
+        self.top.resizable(width=False, height=False)
+        host.set(config.host)
+        user.set(config.user)
+        password.set(base64.b64decode(config.password).decode())
+
+        e1 = ttk.Entry(r_entry_frame, textvariable=host, font=('Arial', 15, 'italic'))
+        e2 = ttk.Entry(r_entry_frame, textvariable=user, font=('Arial', 15, 'italic'))
+        e3 = ttk.Entry(r_entry_frame, textvariable=password, font=('Arial', 15, 'italic'))
+        e1.config({"foreground":"grey"})
+        e2.config({"foreground":"grey"})
+        e3.config({"foreground":"grey"})
+
+        e3.config(show="*")
+
+        e1.pack(pady=5)
+        e3.pack(pady=5)
+        e2.pack(pady=5)
+        auxiliary_classes.global_data.progress.grid(row=6, column=1, sticky="NSEW")
+        auxiliary_classes.global_data.progress.grid_remove()
+        c = ttk.Checkbutton(
+            r_buttons_frame, text="Remember me", variable=var,
+            onvalue="RGB", offvalue="L")
+        c.pack(side= TOP)
+        button1 = ttk.Button(r_buttons_frame, text="Quit", command=quit)
+        auxiliary_classes.global_data.button2 = ttk.Button(r_buttons_frame, text="Connect",
+                                                            command=lambda: self.update_credentials(host.get(),
+                                                            user.get(),
+                                                            password.get()))
+        button1.pack()
+        auxiliary_classes.global_data.button2.pack()
 
     def update_credentials(self, host, user, password):
         # First update the credentials of the config file.
