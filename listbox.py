@@ -4,7 +4,7 @@ from tkinter import ttk, messagebox
 from tkinter import *
 import heapq
 # Local Imports
-import main
+import auxiliary_classes
 
 
 class DDList:
@@ -58,13 +58,13 @@ class DDList:
             self.update()
             self.moved_flag = False
         if len(self.tree.selection()) > 0:
-            main.global_data.delete_button.config(state="normal")
+            auxiliary_classes.global_data.delete_button.config(state="normal")
         else:
-            main.global_data.delete_button.config(state="disabled")
+            auxiliary_classes.global_data.delete_button.config(state="disabled")
 
     def b_move(self, event):
         moveto = self.tree.index(self.tree.identify_row(event.y))
-        if main.global_data.queue_running and (moveto == 0 or self.tree.index(self.tree.selection()) == 0):
+        if auxiliary_classes.global_data.queue_running and (moveto == 0 or self.tree.index(self.tree.selection()) == 0):
             return
         for s in self.tree.selection():
             self.tree.move(s, '', moveto)
@@ -73,47 +73,47 @@ class DDList:
     def do_kill_process(self, event):
         item = self.tree.identify('item', event.x, event.y)
         name = self.tree.item(item)['values'][0]
-        main.global_data.session.kill_process(name)
+        auxiliary_classes.global_data.session.kill_process(name)
 
     # def do_pause_process(self, event):
     #     item = self.tree.identify('item', event.x, event.y)
     #     name = self.tree.item(item)['values'][0]
-    #     data_class.session.pause_process(name)
+    #     global_data.session.pause_process(name)
     #
     # def do_resume_process(self, event):
     #     item = self.tree.identify('item', event.x, event.y)
     #     name = self.tree.item(item)['values'][0]
-    #     data_class.session.resume_process(name)
+    #     global_data.session.resume_process(name)
 
     def do_stop_process(self, event):
         item = self.tree.identify('item', event.x, event.y)
         name = self.tree.item(item)['values'][0]
-        for obj in main.global_data.projects_queue:
+        for obj in auxiliary_classes.global_data.projects_queue:
             if obj.name == name:
                 if obj.status == "Running":
                     path = obj.bash_path
                     obj.status = "Stopping"
-                    main.global_data.my_list.update()
+                    auxiliary_classes.global_data.my_list.update()
                 else:
                     return
-        main.global_data.session.stop_process(path)
+        auxiliary_classes.global_data.session.stop_process(path)
 
     def update(self, refill=True):
         for item in self.tree.get_children():
             self.tree.delete(item)
         if refill:
-            for obj in main.global_data.projects_queue:
-                main.global_data.my_list.insert(obj.get_list())
+            for obj in auxiliary_classes.global_data.projects_queue:
+                auxiliary_classes.global_data.my_list.insert(obj.get_list())
             self._column_sort("Turn", False)
-        if not len(main.global_data.heap_queue) > 0:
-            main.global_data.status_button.config(state="disabled")
+        if not len(auxiliary_classes.global_data.heap_queue) > 0:
+            auxiliary_classes.global_data.status_button.config(state="disabled")
         else:
-            main.global_data.status_button.config(state="normal")
+            auxiliary_classes.global_data.status_button.config(state="normal")
 
     def project_running(self):
         is_running = False
         for listbox_entry in self.tree.get_children():
-            for proj in main.global_data.projects_queue:
+            for proj in auxiliary_classes.global_data.projects_queue:
                 if proj.name == self.tree.item(listbox_entry)['values'][0]:
                     if proj.status == "Running":
                         is_running = True
@@ -123,13 +123,13 @@ class DDList:
         turn = 0
         aux_list = []
         for listbox_entry in self.tree.get_children():
-            for proj in main.global_data.projects_queue:
+            for proj in auxiliary_classes.global_data.projects_queue:
                 if proj.name == self.tree.item(listbox_entry)['values'][0]:
                     if proj.status == "Running" or proj.status == "Queued":
                         turn += 1
                         heapq.heappush(aux_list, [int(turn), self.tree.item(listbox_entry)['values'][0]])
                         proj.turn = turn
-        main.global_data.heap_queue = aux_list
+        auxiliary_classes.global_data.heap_queue = aux_list
 
     def on_right_click(self, event):
 
@@ -161,22 +161,22 @@ class DDList:
             self._column_sort("Turn", False)
         else:
             messagebox.showwarning("Warning", "You can't delete a project that is running!")
-        main.global_data.delete_button.config(state="disabled")
+        auxiliary_classes.global_data.delete_button.config(state="disabled")
 
     def remove_from_queue(self, data, item):
         aux_list = []
         self.tree.delete(item)
 
         # REMOVE FROM THE LIST OF PROJECT OBJECTS
-        for obj in main.global_data.projects_queue:
+        for obj in auxiliary_classes.global_data.projects_queue:
             if obj.name == data:
-                main.global_data.projects_queue.remove(obj)
+                auxiliary_classes.global_data.projects_queue.remove(obj)
 
         # REMOVE FROM THE ACTUAL QUEUE
-        for element in main.global_data.heap_queue:
+        for element in auxiliary_classes.global_data.heap_queue:
             if element[1] != data:
                 heapq.heappush(aux_list, element)
-        main.global_data.heap_queue = aux_list
+        auxiliary_classes.global_data.heap_queue = aux_list
 
     def _load_data(self):
         # configure column headings
@@ -186,7 +186,7 @@ class DDList:
             self.tree.column(c, width=Font().measure(c.title()))
 
         # add data to the tree
-        for item in main.global_data.data_table:
+        for item in auxiliary_classes.global_data.data_table:
             self.tree.insert('', 'end', values=item)
 
             # and adjust column widths if necessary
@@ -214,7 +214,7 @@ class DDList:
 
     @staticmethod
     def element_running(data):
-        for obj in main.global_data.projects_queue:
+        for obj in auxiliary_classes.global_data.projects_queue:
             if obj.name == data:
                 if obj.status == "Running":
                     return True

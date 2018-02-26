@@ -1,3 +1,5 @@
+import config
+from tkinter import Tk
 class Project():
     def __init__(self, name, path, cores, status, turn, added_time):
         self.name = name
@@ -27,3 +29,6 @@ class GUIData:
         self.queue_running = False
         self.task_stopped = False
         self.task_canceled = False
+
+global_data = GUIData(config.user, config.host)
+root = Tk()

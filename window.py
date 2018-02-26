@@ -9,7 +9,7 @@ from tkinter.ttk import *
 from tkinter import ttk, filedialog, Frame, Label, messagebox
 import pickle
 # Local Imports
-import main
+import auxiliary_classes
 import listbox
 import session
 import config
@@ -20,8 +20,8 @@ class Window(Frame):
     def __init__(self, master=None):
         Frame.__init__(self ,master)
         self.master = master
-        main.global_data.connection_exist = False
-        main.global_data.session = None
+        auxiliary_classes.global_data.connection_exist = False
+        auxiliary_classes.global_data.session = None
         self.master.withdraw()
         self.enter_credentials_widget()
         self.init_window()
@@ -45,18 +45,18 @@ class Window(Frame):
         self.master.geometry("830x360")
 
         # Init MenuBar
-        main.global_data.menu_connection = Menu(self.master)
+        auxiliary_classes.global_data.menu_connection = Menu(self.master)
 
         # create a pulldown menu, and add it to the menu bar
-        Menu(main.global_data.menu_connection, tearoff=0)
-        setting_menu = Menu(main.global_data.menu_connection, tearoff=0)
+        Menu(auxiliary_classes.global_data.menu_connection, tearoff=0)
+        setting_menu = Menu(auxiliary_classes.global_data.menu_connection, tearoff=0)
         setting_menu.add_command(label='Auto queueing', command=self.save_action)
         # connect_menu.add_separator()
-        main.global_data.menu_connection.add_cascade(label="Disconnect", command=self.ask_disconnection)
-        main.global_data.menu_connection.add_cascade(label="Settings", menu=setting_menu)
-        main.global_data.menu_connection.add_cascade(label="Exit", command=self.ask_exit)
+        auxiliary_classes.global_data.menu_connection.add_cascade(label="Disconnect", command=self.ask_disconnection)
+        auxiliary_classes.global_data.menu_connection.add_cascade(label="Settings", menu=setting_menu)
+        auxiliary_classes.global_data.menu_connection.add_cascade(label="Exit", command=self.ask_exit)
 
-        self.master.config(menu=main.global_data.menu_connection)
+        self.master.config(menu=auxiliary_classes.global_data.menu_connection)
         self.master.pack_propagate(0)
 
         # The content of the frame
@@ -81,61 +81,61 @@ class Window(Frame):
         disk_frame.grid(row=0, column=3, sticky="nsew", padx=(10, 0))
         Label(title_frame, text="SimQ", background="#D8D8D8", foreground="green", font=("Helvetica", 14, "bold")).pack()
         Label(connection_frame, text="Host:").grid(row=0, column=0, sticky=E)
-        main.global_data.iplabel = Label(connection_frame, text=config.host)
-        main.global_data.iplabel.grid(row=0, column=1, sticky=E)
+        auxiliary_classes.global_data.iplabel = Label(connection_frame, text=config.host)
+        auxiliary_classes.global_data.iplabel.grid(row=0, column=1, sticky=E)
         Label(connection_frame, text="Connection Status:").grid(row=1, column=0, sticky=W)
         Label(connection_frame, text="Queue Status:").grid(row=2, column=0, sticky=W)
-        main.global_data.status_label = Label(connection_frame, text="Disconnected", foreground="red")
-        main.global_data.status_queue_label = Label(connection_frame, text="Stopped", foreground="red")
-        main.global_data.status_label.grid(row=1, column=1, sticky=E)
-        main.global_data.status_queue_label.grid(row=2, column=1, sticky=E)
+        auxiliary_classes.global_data.status_label = Label(connection_frame, text="Disconnected", foreground="red")
+        auxiliary_classes.global_data.status_queue_label = Label(connection_frame, text="Stopped", foreground="red")
+        auxiliary_classes.global_data.status_label.grid(row=1, column=1, sticky=E)
+        auxiliary_classes.global_data.status_queue_label.grid(row=2, column=1, sticky=E)
         Label(cpu_frame, text="CPU", font=("Helvetica", 10, "bold")).grid(row=0, column=0, sticky=W)
         Label(cpu_frame, text="CPU 0:").grid(row=1, column=0, sticky=E)
-        main.global_data.cpu_list.append(Label(cpu_frame, text="--"))
-        main.global_data.cpu_list[0].grid(row=1, column=1, sticky=W)
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_frame, text="--"))
+        auxiliary_classes.global_data.cpu_list[0].grid(row=1, column=1, sticky=W)
         Label(cpu_frame, text="CPU 1:").grid(row=2, column=0, sticky=E)
-        main.global_data.cpu_list.append(Label(cpu_frame, text="--"))
-        main.global_data.cpu_list[1].grid(row=2, column=1, sticky=W)
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_frame, text="--"))
+        auxiliary_classes.global_data.cpu_list[1].grid(row=2, column=1, sticky=W)
         Label(cpu_frame, text="CPU 2:").grid(row=1, column=2, sticky=E)
-        main.global_data.cpu_list.append(Label(cpu_frame, text="--"))
-        main.global_data.cpu_list[2].grid(row=1, column=3, sticky=W)
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_frame, text="--"))
+        auxiliary_classes.global_data.cpu_list[2].grid(row=1, column=3, sticky=W)
         Label(cpu_frame, text="CPU 3:").grid(row=2, column=2, sticky=E)
-        main.global_data.cpu_list.append(Label(cpu_frame, text="--"))
-        main.global_data.cpu_list[3].grid(row=2, column=3, sticky=W)
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_frame, text="--"))
+        auxiliary_classes.global_data.cpu_list[3].grid(row=2, column=3, sticky=W)
         Label(ram_frame, text="RAM", font=("Helvetica", 10, "bold")).grid(row=0, column=0, sticky=W)
         Label(ram_frame, text="total:").grid(row=1, column=0, sticky=E, padx=(10, 0))
-        main.global_data.ram_stats.append(Label(ram_frame, text="--"))
-        main.global_data.ram_stats[0].grid(row=1, column=1, sticky=W)
+        auxiliary_classes.global_data.ram_stats.append(Label(ram_frame, text="--"))
+        auxiliary_classes.global_data.ram_stats[0].grid(row=1, column=1, sticky=W)
         Label(ram_frame, text="used:").grid(row=2, column=0, sticky=E, padx=(10, 0))
-        main.global_data.ram_stats.append(Label(ram_frame, text="--"))
-        main.global_data.ram_stats[1].grid(row=2, column=1, sticky=W)
+        auxiliary_classes.global_data.ram_stats.append(Label(ram_frame, text="--"))
+        auxiliary_classes.global_data.ram_stats[1].grid(row=2, column=1, sticky=W)
         Label(ram_frame, text="free:").grid(row=1, column=2, sticky=E)
-        main.global_data.ram_stats.append(Label(ram_frame, text="--"))
-        main.global_data.ram_stats[2].grid(row=1, column=3, sticky=W)
+        auxiliary_classes.global_data.ram_stats.append(Label(ram_frame, text="--"))
+        auxiliary_classes.global_data.ram_stats[2].grid(row=1, column=3, sticky=W)
         Label(ram_frame, text="usage:").grid(row=2, column=2, sticky=E)
-        main.global_data.ram_stats.append(Label(ram_frame, text="--"))
-        main.global_data.ram_stats[3].grid(row=2, column=3, sticky=W)
+        auxiliary_classes.global_data.ram_stats.append(Label(ram_frame, text="--"))
+        auxiliary_classes.global_data.ram_stats[3].grid(row=2, column=3, sticky=W)
         Label(disk_frame, text="Disk", font=("Helvetica", 10, "bold")).grid(row=0, column=0, sticky=W)
         Label(disk_frame, text="total:").grid(row=1, column=0, sticky=E, padx=(10, 0))
-        main.global_data.disk_storage.append(Label(disk_frame, text="--"))
-        main.global_data.disk_storage[0].grid(row=1, column=1, sticky=W)
+        auxiliary_classes.global_data.disk_storage.append(Label(disk_frame, text="--"))
+        auxiliary_classes.global_data.disk_storage[0].grid(row=1, column=1, sticky=W)
         Label(disk_frame, text="used:").grid(row=2, column=0, sticky=E, padx=(10, 0))
-        main.global_data.disk_storage.append(Label(disk_frame, text="--"))
-        main.global_data.disk_storage[1].grid(row=2, column=1, sticky=W)
+        auxiliary_classes.global_data.disk_storage.append(Label(disk_frame, text="--"))
+        auxiliary_classes.global_data.disk_storage[1].grid(row=2, column=1, sticky=W)
         Label(disk_frame, text="free:").grid(row=1, column=2, sticky=E)
-        main.global_data.disk_storage.append(Label(disk_frame, text="--"))
-        main.global_data.disk_storage[2].grid(row=1, column=3, sticky=W)
+        auxiliary_classes.global_data.disk_storage.append(Label(disk_frame, text="--"))
+        auxiliary_classes.global_data.disk_storage[2].grid(row=1, column=3, sticky=W)
         Label(disk_frame, text="usage:").grid(row=2, column=2, sticky=E)
-        main.global_data.disk_storage.append(Label(disk_frame, text="--"))
-        main.global_data.disk_storage[3].grid(row=2, column=3, sticky=W)
-        main.global_data.my_list = listbox.DDList(center_frame, height=6)
+        auxiliary_classes.global_data.disk_storage.append(Label(disk_frame, text="--"))
+        auxiliary_classes.global_data.disk_storage[3].grid(row=2, column=3, sticky=W)
+        auxiliary_classes.global_data.my_list = listbox.DDList(center_frame, height=6)
         # Defining buttons
-        main.global_data.delete_button = ttk.Button(bottom_frame, text='Delete', state="disabled",
-                                               command=main.global_data.my_list.delete)
-        main.global_data.delete_button.pack(side=RIGHT, fill=BOTH, padx=(5, 10))
+        auxiliary_classes.global_data.delete_button = ttk.Button(bottom_frame, text='Delete', state="disabled",
+                                               command=auxiliary_classes.global_data.my_list.delete)
+        auxiliary_classes.global_data.delete_button.pack(side=RIGHT, fill=BOTH, padx=(5, 10))
         Button(bottom_frame, text='Add', command=self.add_project).pack(side=RIGHT, fill=Y, padx=(10, 0))
-        main.global_data.status_button = Button(bottom_frame, text='Start Queue', command=self.toggle_queue_status)
-        main.global_data.status_button.pack(side=LEFT, padx=(10, 0))
+        auxiliary_classes.global_data.status_button = Button(bottom_frame, text='Start Queue', command=self.toggle_queue_status)
+        auxiliary_classes.global_data.status_button.pack(side=LEFT, padx=(10, 0))
 
         # Config of frames
         title_frame.grid_propagate(False)
@@ -144,18 +144,18 @@ class Window(Frame):
         disk_frame.grid_propagate(False)
 
     def toggle_queue_status(self):
-        if not main.global_data.queue_running:
-            print(main.global_data.heap_queue)
-            main.global_data.queue_running = True
-            main.global_data.status_button.config(text="Stop Queue")
-            main.global_data.status_queue_label.config(text="Running", foreground="green")
+        if not auxiliary_classes.global_data.queue_running:
+            print(auxiliary_classes.global_data.heap_queue)
+            auxiliary_classes.global_data.queue_running = True
+            auxiliary_classes.global_data.status_button.config(text="Stop Queue")
+            auxiliary_classes.global_data.status_queue_label.config(text="Running", foreground="green")
             if not self.queue_thread.isAlive():
                 self.queue_thread = threading.Thread(target=self.start_queue)
                 self.queue_thread.start()
         else:
-            main.global_data.queue_running = False
-            main.global_data.status_button.config(text="Start Queue")
-            main.global_data.status_queue_label.config(text="Stopped", foreground="red")
+            auxiliary_classes.global_data.queue_running = False
+            auxiliary_classes.global_data.status_button.config(text="Start Queue")
+            auxiliary_classes.global_data.status_queue_label.config(text="Stopped", foreground="red")
 
     def save_action(self):
         pass
@@ -163,7 +163,7 @@ class Window(Frame):
     def add_project(self):
         reload(config)
         targetpath = f"\\\\{config.host}\\Projects"
-        filepath = filedialog.askopenfilename(parent=main.root, filetypes=(("Script Files", "*.SCRIPT"),
+        filepath = filedialog.askopenfilename(parent=auxiliary_classes.root, filetypes=(("Script Files", "*.SCRIPT"),
                                                                       ("All Files", "*.*")),
                                               initialdir=targetpath,
                                               title='Please select a .SCRIPT project')
@@ -171,44 +171,44 @@ class Window(Frame):
             self.add_to_queue(filepath)
 
     def start_queue(self):
-        while main.global_data.queue_running:
-            print(main.global_data.heap_queue)
-            if len(main.global_data.heap_queue) > 0:
-                task = main.global_data.heap_queue[0]
+        while auxiliary_classes.global_data.queue_running:
+            print(auxiliary_classes.global_data.heap_queue)
+            if len(auxiliary_classes.global_data.heap_queue) > 0:
+                task = auxiliary_classes.global_data.heap_queue[0]
             else:
                 messagebox.showwarning("Queue finished", "The queue has finished!")
                 self.toggle_queue_status()
                 return
-            for proj in main.global_data.projects_queue:
+            for proj in auxiliary_classes.global_data.projects_queue:
                 if proj.name == task[1]:
                     if proj.status == "Running":
                         break
                     else:
                         proj.status = "Running"
-                        main.global_data.my_list.update()
-                        main.global_data.task_done = False
-                        main.global_data.task_stopped = False
-                        main.global_data.task_canceled = False
-                        main.global_data.task_denied = False
-                        threading.Thread(target=main.global_data.session.start_project,
+                        auxiliary_classes.global_data.my_list.update()
+                        auxiliary_classes.global_data.task_done = False
+                        auxiliary_classes.global_data.task_stopped = False
+                        auxiliary_classes.global_data.task_canceled = False
+                        auxiliary_classes.global_data.task_denied = False
+                        threading.Thread(target=auxiliary_classes.global_data.session.start_project,
                                          args=(proj.bash_path, proj.name)).start()
                         break
             while True:
-                if main.global_data.task_done:
-                    if main.global_data.task_stopped:
+                if auxiliary_classes.global_data.task_done:
+                    if auxiliary_classes.global_data.task_stopped:
                         proj.status = "Stopped Gently"
-                    elif main.global_data.task_canceled:
+                    elif auxiliary_classes.global_data.task_canceled:
                         proj.status = "Stop Forced"
-                    elif main.global_data.task_denied:
+                    elif auxiliary_classes.global_data.task_denied:
                         proj.status = "Permission Denied"
                     else:
                         proj.status = "Completed"
                     proj.turn = None
-                    del main.global_data.name_pid[proj.name]
-                    heapq.heappop(main.global_data.heap_queue)
-                    main.global_data.my_list.adjust_queue_turn()
+                    del auxiliary_classes.global_data.name_pid[proj.name]
+                    heapq.heappop(auxiliary_classes.global_data.heap_queue)
+                    auxiliary_classes.global_data.my_list.adjust_queue_turn()
                     try:
-                        main.global_data.my_list.update()
+                        auxiliary_classes.global_data.my_list.update()
                     except ReferenceError:
                         return
                     break
@@ -233,60 +233,67 @@ class Window(Frame):
                       datetime.now().strftime("%Y-%m-%d / %H:%M:%S"))
         new.bash_path = self.bashify(filepath)
         print(new.bash_path)
-        heapq.heappush(main.global_data.heap_queue, [int(self.count_queued_project()), filename])
-        main.global_data.projects_queue.append(new)
-        main.global_data.my_list.insert(new.get_list())
-        main.global_data.my_list.update()
+        heapq.heappush(auxiliary_classes.global_data.heap_queue, [int(self.count_queued_project()), filename])
+        auxiliary_classes.global_data.projects_queue.append(new)
+        auxiliary_classes.global_data.my_list.insert(new.get_list())
+        auxiliary_classes.global_data.my_list.update()
 
     def enter_credentials_widget(self):
         self.top = Toplevel(self.master)
-        self.top.geometry("400x400")
-
-        main.global_data.progress = ttk.Progressbar(self.top, length=100, value=0)
+        self.top.geometry("676x480")
+        left_frame = Frame(self.top, width=376, height=480)
+        right_frame = Frame(self.top, width=300, height=480)
+        img = PhotoImage(file=r'Cover_Lines.png')
+        self.master.one = Label(left_frame, image=img)
+        self.master.one.photo = img
+        self.master.one.pack()
+        img = PhotoImage(file=r'LIO_SEGreen_Logo.png')
+        self.master.two = Label(right_frame, image=img)
+        self.master.two.photo = img
+        self.master.two.grid(row=8, column=1, columnspan=3, rowspan=3,
+               sticky=W+E+N+S, padx=5, pady=5)
+        auxiliary_classes.global_data.progress = ttk.Progressbar(self.top, length=100, value=0)
         host = StringVar()
         user = StringVar()
         password = StringVar()
-
+        left_frame.grid(row=0,column=0)
+        right_frame.grid(row=0,column=4)
         self.top.title("Connect to machine")
         self.top.resizable(width=False, height=False)
-        Label(self.top, text="Login Credentials", foreground="green", font=("Helvetica", 10, "bold")).grid(row=0, column=1)
+        Label(right_frame, text="Login Credentials", foreground="green", font=("Helvetica", 10, "bold")).grid(row=0, column=1)
 
         host.set(config.host)
         user.set(config.user)
         password.set(base64.b64decode(config.password).decode())
 
-        Label(self.top, text="IP").grid(row=1, pady=4)
-        Label(self.top, text="User").grid(row=2)
-        Label(self.top, text="Password").grid(row=3)
-
-        e1 = Entry(self.top, textvariable=host)
-        e2 = Entry(self.top, textvariable=user)
-        e3 = Entry(self.top, textvariable=password)
+        e1 = ttk.Entry(right_frame, textvariable=host, font=('Arial', 16))
+        e2 = ttk.Entry(right_frame, textvariable=user, font=('Arial', 16))
+        e3 = ttk.Entry(right_frame, textvariable=password, font=('Arial', 16))
 
         e3.config(show="*")
 
-        e1.grid(row=1, column=1)
-        e2.grid(row=2, column=1)
-        e3.grid(row=3, column=1)
-        main.global_data.progress.grid(row=6, column=1, sticky="NSEW")
-        main.global_data.progress.grid_remove()
+        e1.grid(row=1, column=1, pady=5, padx=(20, 0))
+        e2.grid(row=2, column=1, pady=5, padx=(20, 0))
+        e3.grid(row=3, column=1, pady=5, padx=(20, 0))
+        auxiliary_classes.global_data.progress.grid(row=6, column=1, sticky="NSEW")
+        auxiliary_classes.global_data.progress.grid_remove()
 
-        button1 = ttk.Button(self.top, text="Quit", command=quit)
-        main.global_data.button2 = ttk.Button(self.top, text="Connect",
+        button1 = ttk.Button(right_frame, text="Quit", command=quit)
+        auxiliary_classes.global_data.button2 = ttk.Button(right_frame, text="Connect",
                                          command=lambda: self.update_credentials(host.get(),
                                                                                  user.get(),
                                                                                  password.get()))
-        button1.grid(row=4, column=1, sticky=E, pady=4)
-        main.global_data.button2.grid(row=4, column=2, sticky=W, padx=2, pady=4)
+        button1.grid(row=4)
+        auxiliary_classes.global_data.button2.grid(row=5, sticky=W, padx=2)
 
     def connect_via_ssh(self):
-        if main.global_data.session.assert_connection():
-            main.global_data.progress.step(30)
-            main.global_data.connection_exist = True
-            main.global_data.status_label.config(text="Connected", foreground="green")
-            main.global_data.session.start_threads()
-            self.cpu_number = main.global_data.session.get_cpu_num()
-            main.global_data.button2.config(state="normal")
+        if auxiliary_classes.global_data.session.assert_connection():
+            auxiliary_classes.global_data.progress.step(30)
+            auxiliary_classes.global_data.connection_exist = True
+            auxiliary_classes.global_data.status_label.config(text="Connected", foreground="green")
+            auxiliary_classes.global_data.session.start_threads()
+            self.cpu_number = auxiliary_classes.global_data.session.get_cpu_num()
+            auxiliary_classes.global_data.button2.config(state="normal")
             self.de_pickle_session()
             self.top.destroy()
             self.master.deiconify()
@@ -294,19 +301,19 @@ class Window(Frame):
         else:
             self.disconnect()
             messagebox.showerror("Error", "Connection refused: check credentials and ip.")
-            main.global_data.progress.grid_remove()
-            main.global_data.button2.config(state="normal")
-            main.global_data.progress.config(value=0)
+            auxiliary_classes.global_data.progress.grid_remove()
+            auxiliary_classes.global_data.button2.config(state="normal")
+            auxiliary_classes.global_data.progress.config(value=0)
             return
 
     def update_credentials(self, host, user, password):
         # First update the credentials of the config file.
-        main.global_data.button2.config(state="disabled")
+        auxiliary_classes.global_data.button2.config(state="disabled")
         if password == "" or user == "" or host == "":
             messagebox.showerror("Error", "Fill all the entry fields.")
             return
         if host.count('.') == 3:
-            main.global_data.status_label.config(text="Connecting...", foreground="orange")
+            auxiliary_classes.global_data.status_label.config(text="Connecting...", foreground="orange")
             if not password == base64.b64decode(config.password).decode():
                 encoded_password = base64.b64encode(password.encode())
             else:
@@ -314,50 +321,50 @@ class Window(Frame):
             with open("config.py", "w") as sf:
                 sf.write(f"host = \"{host}\" \nuser = \"{user}\" \npassword = {encoded_password}")
             reload(config)
-            if main.global_data.connection_exist:
-                if main.global_data.session.is_connected:
+            if auxiliary_classes.global_data.connection_exist:
+                if auxiliary_classes.global_data.session.is_connected:
                     self.disconnect()
-            main.global_data.progress.grid()
-            main.global_data.session = session.Session(config.host, config.user, base64.b64decode(config.password).decode())
-            main.global_data.host = config.host
-            main.global_data.progress.step(30)
+            auxiliary_classes.global_data.progress.grid()
+            auxiliary_classes.global_data.session = session.Session(config.host, config.user, base64.b64decode(config.password).decode())
+            auxiliary_classes.global_data.host = config.host
+            auxiliary_classes.global_data.progress.step(30)
             t = threading.Thread(target=self.connect_via_ssh)
             t.start()
-            main.global_data.iplabel.config(text=host)
+            auxiliary_classes.global_data.iplabel.config(text=host)
         else:
             messagebox.showerror("Error", "Invalid IP")
-            main.global_data.progress.grid_remove()
-            main.global_data.button2.config(state="normal")
+            auxiliary_classes.global_data.progress.grid_remove()
+            auxiliary_classes.global_data.button2.config(state="normal")
 
     def disconnect(self):
         # STOP QUEUE
         self.pickle_session()
-        main.global_data.queue_running = False
-        main.global_data.status_button.config(text="Start Queue")
-        main.global_data.status_queue_label.config(text="Stopped", foreground="red")
+        auxiliary_classes.global_data.queue_running = False
+        auxiliary_classes.global_data.status_button.config(text="Start Queue")
+        auxiliary_classes.global_data.status_queue_label.config(text="Stopped", foreground="red")
         # SESSION OFF
-        main.global_data.session.flag_stop = True
-        main.global_data.status_label.config(text="Disconnected", foreground="red")
-        main.global_data.connection_exist = False
-        main.global_data.session.ssh.close()
+        auxiliary_classes.global_data.session.flag_stop = True
+        auxiliary_classes.global_data.status_label.config(text="Disconnected", foreground="red")
+        auxiliary_classes.global_data.connection_exist = False
+        auxiliary_classes.global_data.session.ssh.close()
         self.disconnected_ui()
         self.set_null()
 
     @staticmethod
     def set_null():
-        for label in main.global_data.disk_storage:
+        for label in auxiliary_classes.global_data.disk_storage:
             label.config(text="--")
-        for label in main.global_data.ram_stats:
+        for label in auxiliary_classes.global_data.ram_stats:
             label.config(text="--")
-        for label in main.global_data.cpu_list:
+        for label in auxiliary_classes.global_data.cpu_list:
             label.config(text="--")
 
     @staticmethod
     def disconnected_ui():
-        main.global_data.heap_queue = []
-        main.global_data.projects_queue = []
-        main.global_data.data_table = []
-        main.global_data.my_list.update(False)
+        auxiliary_classes.global_data.heap_queue = []
+        auxiliary_classes.global_data.projects_queue = []
+        auxiliary_classes.global_data.data_table = []
+        auxiliary_classes.global_data.my_list.update(False)
 
     @staticmethod
     def de_pickle_session():
@@ -365,18 +372,18 @@ class Window(Frame):
             with open("object.pickle", "rb") as f:
                 stored_data = pickle.load(f)
                 for saved_session in stored_data:
-                    if main.global_data.host == saved_session[0]:
-                        main.global_data.heap_queue = saved_session[1]
-                        main.global_data.projects_queue = saved_session[2]
-                        main.global_data.data_table = saved_session[3]
+                    if auxiliary_classes.global_data.host == saved_session[0]:
+                        auxiliary_classes.global_data.heap_queue = saved_session[1]
+                        auxiliary_classes.global_data.projects_queue = saved_session[2]
+                        auxiliary_classes.global_data.data_table = saved_session[3]
         except EOFError:
             pass
-        main.global_data.progress.step(9.99)
-        main.global_data.my_list.update()
+        auxiliary_classes.global_data.progress.step(9.99)
+        auxiliary_classes.global_data.my_list.update()
 
     @staticmethod
     def pickle_session():
-        if not main.global_data.queue_running and not main.global_data.my_list.project_running():
+        if not auxiliary_classes.global_data.queue_running and not auxiliary_classes.global_data.my_list.project_running():
             try:
                 with open("object.pickle", "rb") as r:
                     stored_data = pickle.load(r)
@@ -384,17 +391,17 @@ class Window(Frame):
                 stored_data = []
             saved = False
             for session_saved in stored_data:
-                if session_saved[0] == main.global_data.host:
-                    session_saved[1] = main.global_data.heap_queue
-                    session_saved[2] = main.global_data.projects_queue
-                    session_saved[3] = main.global_data.data_table
+                if session_saved[0] == auxiliary_classes.global_data.host:
+                    session_saved[1] = auxiliary_classes.global_data.heap_queue
+                    session_saved[2] = auxiliary_classes.global_data.projects_queue
+                    session_saved[3] = auxiliary_classes.global_data.data_table
                     saved = True
             if not saved:
                 stored_data.append(
-                    [main.global_data.host, main.global_data.heap_queue, main.global_data.projects_queue, main.global_data.data_table])
+                    [auxiliary_classes.global_data.host, auxiliary_classes.global_data.heap_queue, auxiliary_classes.global_data.projects_queue, auxiliary_classes.global_data.data_table])
             with open("object.pickle", "wb") as w:
                 pickle.dump(stored_data, w)
-        elif main.global_data.queue_running:
+        elif auxiliary_classes.global_data.queue_running:
             messagebox.showwarning("Warning", "Stop the queue before disconnecting.")
         else:
             messagebox.showwarning("Warning", "Wait for project to stop running disconnecting.")
@@ -403,13 +410,13 @@ class Window(Frame):
     def ask_exit():
         result = messagebox.askquestion("Exit", "Are  you sure you want to exit?", icon='warning')
         if result == 'yes':
-            main.root.quit()
+            auxiliary_classes.root.quit()
         else:
             return
 
     @staticmethod
     def count_queued_project():
-        return len(main.global_data.heap_queue) + 1
+        return len(auxiliary_classes.global_data.heap_queue) + 1
 
     @staticmethod
     def bashify(file_path):
@@ -425,7 +432,7 @@ class Window(Frame):
 
     @staticmethod
     def is_repeated(data):
-        for obj in main.global_data.projects_queue:
+        for obj in auxiliary_classes.global_data.projects_queue:
             if obj.name == data:
                 return True
         return False
