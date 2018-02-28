@@ -33,5 +33,6 @@ class GUIData:
         self.task_stopped = False
         self.task_canceled = False
 
+
 global_data = GUIData(config.user, config.host)
 root = Tk()

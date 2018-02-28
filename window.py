@@ -20,7 +20,6 @@ class Window(Frame):
         Frame.__init__(self ,master)
         self.master = master
         self.master.iconbitmap(r'resources/app_pictogram_orC_icon.ico')
-        auxiliary_classes.global_data.connection_exist = False
         auxiliary_classes.global_data.session = None
         self.master.withdraw()
         self.enter_credentials_widget()
@@ -256,20 +255,21 @@ class Window(Frame):
     def connect_via_ssh(self):
         if auxiliary_classes.global_data.session.assert_connection():
             auxiliary_classes.global_data.progress.step(30)
-            auxiliary_classes.global_data.connection_exist = True
             auxiliary_classes.global_data.status_label.config(text="Connected", foreground="green")
             auxiliary_classes.global_data.session.start_threads()
             self.cpu_number = auxiliary_classes.global_data.session.get_cpu_num()
             auxiliary_classes.global_data.button2.config(state="normal")
+            auxiliary_classes.global_data.button1.config(state="normal")
             self.de_pickle_session()
             self.top.destroy()
             self.master.deiconify()
 
         else:
             self.disconnect()
-            messagebox.showerror("Error", "Connection refused: check credentials and ip.")
             auxiliary_classes.global_data.progress.place_forget()
+            auxiliary_classes.global_data.msg_refused.place(relx=0.5, rely=0.5, anchor=CENTER)
             auxiliary_classes.global_data.button2.config(state="normal")
+            auxiliary_classes.global_data.button1.config(state="normal")
             auxiliary_classes.global_data.progress.config(value=0)
             return
 
@@ -290,64 +290,67 @@ class Window(Frame):
         # Configuring Main window frames
         left_frame = Frame(self.top, width=376, height=480)
         right_frame = Frame(self.top, width=300, height=480)
-        left_frame.pack(side=LEFT)
-        right_frame.pack(side=RIGHT, fill=BOTH)
+        left_frame.pack(side=LEFT, fill=BOTH)
+        right_frame.pack(side=RIGHT, fill=BOTH, expand=True)
 
         # Auxiliary right frames
         r_top_frame = Frame(right_frame, width=300, height=40)
-        r_entry_frame = Frame(right_frame, width=300, height=180)
+        r_entry_frame = Frame(right_frame, width=300, height=170)
         r_buttons_frame = Frame(right_frame, width=300, height=170)
-        r_loading_frame = Frame(right_frame, width=300, height=40)
-        r_footer_frame = Frame(right_frame, width=300, height=50)
+        r_loading_frame = Frame(right_frame, width=300, height=35)
+        r_footer_frame = Frame(right_frame, width=300, height=42)
         r_top_frame.pack(fill=BOTH, pady=(0, 8))
-        r_entry_frame.pack(fill=BOTH, pady=(40, 8))
-        r_buttons_frame.pack(fill=BOTH, pady=8)
-        r_loading_frame.pack(expand=True,fill=BOTH, pady=8)
-        r_footer_frame.pack(fill=BOTH, pady=8)
+        r_entry_frame.pack(fill=BOTH, pady=(30, 4))
+        r_buttons_frame.pack(fill=BOTH, pady=(8, 2))
+        r_loading_frame.pack(fill=BOTH, pady=(2, 8))
+        r_footer_frame.pack(fill=BOTH)
         exit_button = Button(r_top_frame, text="X", font=('Arial',11,'bold'), fg = "grey")
         exit_button.config(relief=FLAT)
         exit_button.bind('<Button-1>', quit)
         exit_button.pack(side=RIGHT)
         img = PhotoImage(file=r'resources\Cover_Lines.png')
-        self.master.one = Label(left_frame, image=img)
+        self.master.one = Label(left_frame, image=img, highlightthickness=0, borderwidth =0)
         self.master.one.photo = img
         self.master.one.pack(side=RIGHT)
-        img = PhotoImage(file=r'resources\LOGO_SE.png')
-        self.master.two = Label(r_footer_frame, image=img)
+        img = PhotoImage(file=r'resources\LIO_SE_195x40.png')
+        self.master.two = Label(r_footer_frame, image=img )
+        self.master.two.pack(side=RIGHT, padx=(0,25))
         self.master.two.photo = img
-        self.master.two.pack(side=RIGHT)
         auxiliary_classes.global_data.progress = ttk.Progressbar(r_loading_frame, length=100, value=0)
+        auxiliary_classes.global_data.msg_refused = Label(r_loading_frame,
+                                                          text="Connection failed, check credentials and try again.",
+                                                          fg="red",
+                                                          font=('Arial', 9, 'italic'))
+        auxiliary_classes.global_data.msg_entry = Label(r_loading_frame,
+                                                      text="Please, fill all entry fields.",
+                                                      fg="red",
+                                                      font=('Arial', 9, 'italic'))
         host = StringVar(value="Host")
         user = StringVar(value="User")
         password = StringVar(value="Password")
-        var = StringVar()
+        auxiliary_classes.global_data.checkbox = StringVar()
         self.top.title("Connect to machine")
         self.top.resizable(width=False, height=False)
         # host.set(config.host)
         # user.set(config.user)
         # password.set(base64.b64decode(config.password).decode())
 
-        e1 = ttk.Entry(r_entry_frame, textvariable=host, font=('Arial', 15, 'italic'))
-        e2 = ttk.Entry(r_entry_frame, textvariable=user, font=('Arial', 15, 'italic'))
-        e3 = ttk.Entry(r_entry_frame, textvariable=password, font=('Arial', 15, 'italic'))
-        e1.config({"foreground":"grey"})
-        e2.config({"foreground":"grey"})
-        e3.config({"foreground":"grey"})
+        e1 = ttk.Entry(r_entry_frame, textvariable=host, font=('Arial', 14, 'italic'), foreground = "grey")
+        e2 = ttk.Entry(r_entry_frame, textvariable=user, font=('Arial', 14, 'italic'), foreground = "grey")
+        e3 = ttk.Entry(r_entry_frame, textvariable=password, font=('Arial', 14, 'italic'), foreground = "grey")
         e3.config(show="*")
-        e1.pack(pady=(30,8))
+        e1.pack(pady=(25,8))
         e2.pack(pady=8)
-        e3.pack(pady=8)
-        auxiliary_classes.global_data.progress.place(relx=0.5, rely=0.5, anchor=CENTER)
-        auxiliary_classes.global_data.progress.place_forget()
+        e3.pack(pady=(8,0))
+
         check_button = ttk.Checkbutton(
-            r_buttons_frame, text="Remember me", variable=var,
-            onvalue="RGB", offvalue="L")
-        check_button.pack(side=TOP, pady=8)
-        imag_last = PhotoImage(file=r'resources\Button_last-session.png')
-        button1 = Button(r_buttons_frame, command=quit)
-        button1.config(image=imag_last, bd=0, width="240", height="32")
-        button1.photo = imag_last
-        login_img = PhotoImage(file=r'resources\button_login.png')
+            r_buttons_frame, text="Remember me", variable=auxiliary_classes.global_data.checkbox, onvalue=True)
+        check_button.pack(side=TOP, anchor=W, padx=(35, 0), pady=(0, 4))
+        imag_last = PhotoImage(file=r'resources\LastSession_button.png')
+        auxiliary_classes.global_data.button1 = Button(r_buttons_frame, command=quit)
+        auxiliary_classes.global_data.button1.config(image=imag_last, bd=0, width="240", height="32", command= self.update_credentials)
+        auxiliary_classes.global_data.button1.photo = imag_last
+        login_img = PhotoImage(file=r'resources\Login_button.png')
         auxiliary_classes.global_data.button2 = Button(r_buttons_frame, text="Connect",
                                                             command=lambda: self.update_credentials(host.get(),
                                                             user.get(),
@@ -355,16 +358,20 @@ class Window(Frame):
         auxiliary_classes.global_data.button2.config(image=login_img, bd=0, width="240", height="32")
         auxiliary_classes.global_data.button2.photo = login_img
         auxiliary_classes.global_data.button2.pack(pady=5)
-        button1.pack(pady=8)
+        auxiliary_classes.global_data.button1.pack(pady=8)
 
-    def update_credentials(self, host, user, password):
+    def update_credentials(self, host=config.host, user=config.user, password=base64.b64decode(config.password).decode()):
         # First update the credentials of the config file.
+        auxiliary_classes.global_data.msg_refused.place_forget()
+        auxiliary_classes.global_data.msg_entry.place_forget()
         auxiliary_classes.global_data.button2.config(state="disabled")
-        if password == "" or user == "" or host == "":
-            messagebox.showerror("Error", "Fill all the entry fields.")
+        auxiliary_classes.global_data.button1.config(state="disabled")
+        if host == "Host" or host == "":
+            auxiliary_classes.global_data.msg_entry.place(relx=0.5, rely=0.5, anchor=CENTER)
+            auxiliary_classes.global_data.button2.config(state="normal")
+            auxiliary_classes.global_data.button1.config(state="normal")
             return
-        if host.count('.') == 3:
-            auxiliary_classes.global_data.status_label.config(text="Connecting...", foreground="orange")
+        if auxiliary_classes.global_data.checkbox:
             if not password == base64.b64decode(config.password).decode():
                 encoded_password = base64.b64encode(password.encode())
             else:
@@ -372,20 +379,13 @@ class Window(Frame):
             with open("config.py", "w") as sf:
                 sf.write(f"host = \"{host}\" \nuser = \"{user}\" \npassword = {encoded_password}")
             reload(config)
-            if auxiliary_classes.global_data.connection_exist:
-                if auxiliary_classes.global_data.session.is_connected:
-                    self.disconnect()
-            auxiliary_classes.global_data.progress.place(relx=0.5, rely=0.5, anchor=CENTER)
-            auxiliary_classes.global_data.session = session.Session(config.host, config.user, base64.b64decode(config.password).decode())
-            auxiliary_classes.global_data.host = config.host
-            auxiliary_classes.global_data.progress.step(30)
-            t = threading.Thread(target=self.connect_via_ssh)
-            t.start()
-            auxiliary_classes.global_data.iplabel.config(text=host)
-        else:
-            messagebox.showerror("Error", "Invalid IP")
-            auxiliary_classes.global_data.progress.place_forget()
-            auxiliary_classes.global_data.button2.config(state="normal")
+        auxiliary_classes.global_data.progress.place(relx=0.5, rely=0.5, anchor=CENTER)
+        auxiliary_classes.global_data.session = session.Session(config.host, config.user, base64.b64decode(config.password).decode())
+        auxiliary_classes.global_data.host = config.host
+        auxiliary_classes.global_data.progress.step(30)
+        t = threading.Thread(target=self.connect_via_ssh)
+        t.start()
+        auxiliary_classes.global_data.iplabel.config(text=host)
 
     def disconnect(self):
         # STOP QUEUE
@@ -396,7 +396,6 @@ class Window(Frame):
         # SESSION OFF
         auxiliary_classes.global_data.session.flag_stop = True
         auxiliary_classes.global_data.status_label.config(text="Disconnected", foreground="red")
-        auxiliary_classes.global_data.connection_exist = False
         auxiliary_classes.global_data.session.ssh.close()
         self.disconnected_ui()
         self.set_null()

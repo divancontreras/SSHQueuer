@@ -1,9 +1,10 @@
 # Local Imports
 import auxiliary_classes
-#External Imports
+# External Imports
 from tkinter import messagebox
 import pickle
 import window
+
 
 def on_closing():
     result = messagebox.askquestion("Exit", "Are  you sure you want to exit?", icon='warning')
