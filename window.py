@@ -5,7 +5,6 @@ import threading
 from datetime import datetime
 from importlib import reload
 from tkinter import *
-from tkinter.ttk import *
 from tkinter import ttk, filedialog, Frame, Label, messagebox
 import pickle
 # Local Imports
@@ -269,20 +268,22 @@ class Window(Frame):
         else:
             self.disconnect()
             messagebox.showerror("Error", "Connection refused: check credentials and ip.")
-            auxiliary_classes.global_data.progress.grid_remove()
+            auxiliary_classes.global_data.progress.place_forget()
             auxiliary_classes.global_data.button2.config(state="normal")
             auxiliary_classes.global_data.progress.config(value=0)
             return
 
     def enter_credentials_widget(self):
         self.top = Toplevel(self.master)
-
+        self.center(self.top)
         # Removing bordes and adding motion
         self.top.overrideredirect(1)
         self.top.bind("<ButtonPress-1>", self.StartMove)
-        self.top.bind("<ButtonRelease-1>", self.StopMove)
+        self.top.bind('<ButtonRelease-1>', self.StopMove)
         self.top.bind("<B1-Motion>", self.OnMotion)
-
+        self.top.bind("<Return>", lambda event: self.update_credentials(host.get(),
+                                                            user.get(),
+                                                            password.get()))
         # Window size
         self.top.geometry("676x480")
 
@@ -291,40 +292,40 @@ class Window(Frame):
         right_frame = Frame(self.top, width=300, height=480)
         left_frame.pack(side=LEFT)
         right_frame.pack(side=RIGHT, fill=BOTH)
-        # Auxiliary right frames
 
-        r_top_frame = Frame(right_frame, width=300, height=40, bg="red")
-        r_entry_frame = Frame(right_frame, width=300, height=180, bg="yellow")
-        r_buttons_frame = Frame(right_frame, width=300, height=180, bg="green")
-        r_loading_frame = Frame(right_frame, width = 300,height =30, bg="blue")
-        r_footer_frame = Frame(right_frame, width=300, height=50, bg="orange")
-        r_top_frame.pack(fill= BOTH, pady=8)
-        r_entry_frame.pack(expand= True, fill=BOTH, pady=8)
-        r_buttons_frame.pack(expand= True, fill=BOTH, pady = 8)
-        r_loading_frame.pack(fill=BOTH, pady=8)
-        r_footer_frame.pack(fill=BOTH, pady= 8)
-        Style().configure('relief_flat', relief = FLAT)
-        exit_button = Button(r_top_frame, text="X", style='green/black.TButton')
-        exit_button.config(relief = FLAT)
+        # Auxiliary right frames
+        r_top_frame = Frame(right_frame, width=300, height=40)
+        r_entry_frame = Frame(right_frame, width=300, height=180)
+        r_buttons_frame = Frame(right_frame, width=300, height=170)
+        r_loading_frame = Frame(right_frame, width=300, height=40)
+        r_footer_frame = Frame(right_frame, width=300, height=50)
+        r_top_frame.pack(fill=BOTH, pady=(0, 8))
+        r_entry_frame.pack(fill=BOTH, pady=(40, 8))
+        r_buttons_frame.pack(fill=BOTH, pady=8)
+        r_loading_frame.pack(expand=True,fill=BOTH, pady=8)
+        r_footer_frame.pack(fill=BOTH, pady=8)
+        exit_button = Button(r_top_frame, text="X", font=('Arial',11,'bold'), fg = "grey")
+        exit_button.config(relief=FLAT)
+        exit_button.bind('<Button-1>', quit)
         exit_button.pack(side=RIGHT)
         img = PhotoImage(file=r'resources\Cover_Lines.png')
         self.master.one = Label(left_frame, image=img)
         self.master.one.photo = img
-        self.master.one.pack(side=RIGHT, padx=(0,10))
+        self.master.one.pack(side=RIGHT)
         img = PhotoImage(file=r'resources\LOGO_SE.png')
         self.master.two = Label(r_footer_frame, image=img)
         self.master.two.photo = img
-        self.master.two.grid(row=8, column=0, sticky= E, columnspan=2, rowspan=2, padx=5, pady=5)
+        self.master.two.pack(side=RIGHT)
         auxiliary_classes.global_data.progress = ttk.Progressbar(r_loading_frame, length=100, value=0)
-        host = StringVar()
-        user = StringVar()
-        password = StringVar()
+        host = StringVar(value="Host")
+        user = StringVar(value="User")
+        password = StringVar(value="Password")
         var = StringVar()
         self.top.title("Connect to machine")
         self.top.resizable(width=False, height=False)
-        host.set(config.host)
-        user.set(config.user)
-        password.set(base64.b64decode(config.password).decode())
+        # host.set(config.host)
+        # user.set(config.user)
+        # password.set(base64.b64decode(config.password).decode())
 
         e1 = ttk.Entry(r_entry_frame, textvariable=host, font=('Arial', 15, 'italic'))
         e2 = ttk.Entry(r_entry_frame, textvariable=user, font=('Arial', 15, 'italic'))
@@ -332,25 +333,29 @@ class Window(Frame):
         e1.config({"foreground":"grey"})
         e2.config({"foreground":"grey"})
         e3.config({"foreground":"grey"})
-
         e3.config(show="*")
-
-        e1.pack(pady=5)
-        e3.pack(pady=5)
-        e2.pack(pady=5)
-        auxiliary_classes.global_data.progress.grid(row=6, column=1, sticky="NSEW")
-        auxiliary_classes.global_data.progress.grid_remove()
-        c = ttk.Checkbutton(
+        e1.pack(pady=(30,8))
+        e2.pack(pady=8)
+        e3.pack(pady=8)
+        auxiliary_classes.global_data.progress.place(relx=0.5, rely=0.5, anchor=CENTER)
+        auxiliary_classes.global_data.progress.place_forget()
+        check_button = ttk.Checkbutton(
             r_buttons_frame, text="Remember me", variable=var,
             onvalue="RGB", offvalue="L")
-        c.pack(side= TOP)
-        button1 = ttk.Button(r_buttons_frame, text="Quit", command=quit)
-        auxiliary_classes.global_data.button2 = ttk.Button(r_buttons_frame, text="Connect",
+        check_button.pack(side=TOP, pady=8)
+        imag_last = PhotoImage(file=r'resources\Button_last-session.png')
+        button1 = Button(r_buttons_frame, command=quit)
+        button1.config(image=imag_last, bd=0, width="240", height="32")
+        button1.photo = imag_last
+        login_img = PhotoImage(file=r'resources\button_login.png')
+        auxiliary_classes.global_data.button2 = Button(r_buttons_frame, text="Connect",
                                                             command=lambda: self.update_credentials(host.get(),
                                                             user.get(),
                                                             password.get()))
-        button1.pack()
-        auxiliary_classes.global_data.button2.pack()
+        auxiliary_classes.global_data.button2.config(image=login_img, bd=0, width="240", height="32")
+        auxiliary_classes.global_data.button2.photo = login_img
+        auxiliary_classes.global_data.button2.pack(pady=5)
+        button1.pack(pady=8)
 
     def update_credentials(self, host, user, password):
         # First update the credentials of the config file.
@@ -370,7 +375,7 @@ class Window(Frame):
             if auxiliary_classes.global_data.connection_exist:
                 if auxiliary_classes.global_data.session.is_connected:
                     self.disconnect()
-            auxiliary_classes.global_data.progress.grid()
+            auxiliary_classes.global_data.progress.place(relx=0.5, rely=0.5, anchor=CENTER)
             auxiliary_classes.global_data.session = session.Session(config.host, config.user, base64.b64decode(config.password).decode())
             auxiliary_classes.global_data.host = config.host
             auxiliary_classes.global_data.progress.step(30)
@@ -379,7 +384,7 @@ class Window(Frame):
             auxiliary_classes.global_data.iplabel.config(text=host)
         else:
             messagebox.showerror("Error", "Invalid IP")
-            auxiliary_classes.global_data.progress.grid_remove()
+            auxiliary_classes.global_data.progress.place_forget()
             auxiliary_classes.global_data.button2.config(state="normal")
 
     def disconnect(self):
@@ -474,7 +479,13 @@ class Window(Frame):
             elif file_path[i].count(".") == 3:
                 return new_file_path
             else:
-                new_file_path = f"/{file_path[i]}" + new_file_path
+                new_file_path = f'/{file_path[i]}' + new_file_path
+
+    @staticmethod
+    def center(win):
+        w = win.winfo_screenwidth()
+        h = win.winfo_screenheight()
+        win.geometry("400x300+%d+%d" % ((w - 400) / 2, (h - 300) / 2))
 
     @staticmethod
     def is_repeated(data):
