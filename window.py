@@ -17,7 +17,7 @@ from auxiliary_classes import Project
 
 class Window(Frame):
     def __init__(self, master=None):
-        Frame.__init__(self ,master)
+        Frame.__init__(self, master)
         self.master = master
         self.master.iconbitmap(r'resources/app_pictogram_orC_icon.ico')
         auxiliary_classes.global_data.session = None
@@ -27,21 +27,26 @@ class Window(Frame):
         self.cpu_number = 0
         self.queue_thread = threading.Thread()
 
-    def StartMove(self, event):
+    def start_move(self, event):
         self.top.x = event.x
         self.top.y = event.y
 
-    def StopMove(self, event):
+    def stop_move(self, event):
         self.top.x = None
         self.top.y = None
 
-    def OnMotion(self, event):
-        deltax = event.x - self.top.x
-        deltay = event.y - self.top.y
-        x = self.top.winfo_x() + deltax
-        y = self.top.winfo_y() + deltay
+    def on_motion(self, event):
+        delta_x = event.x - self.top.x
+        delta_y = event.y - self.top.y
+        x = self.top.winfo_x() + delta_x
+        y = self.top.winfo_y() + delta_y
         self.top.geometry("+%s+%s" % (x, y))
 
+    def new_connection(self):
+        self.disconnect()
+        self.master.withdraw()
+        self.enter_credentials_widget()
+        
     def ask_disconnection(self):
         result = messagebox.askquestion("Disconnect", "Are  you sure you want to disconnect?", icon='warning')
         if result == 'yes':
@@ -49,51 +54,65 @@ class Window(Frame):
         else:
             return
 
-    def new_connection(self):
-        self.disconnect()
-        self.master.withdraw()
-        self.enter_credentials_widget()
-
     def init_window(self):
+        # Init window, set title and geomtry of window.
         self.master.title("SimQ")
-        self.master.geometry("830x360")
-
-        # Init MenuBar
-        auxiliary_classes.global_data.menu_connection = Menu(self.master)
-
-        # create a pulldown menu, and add it to the menu bar
-        Menu(auxiliary_classes.global_data.menu_connection, tearoff=0)
-        setting_menu = Menu(auxiliary_classes.global_data.menu_connection, tearoff=0)
-        setting_menu.add_command(label='Auto queueing', command=self.save_action)
-        # connect_menu.add_separator()
-        auxiliary_classes.global_data.menu_connection.add_cascade(label="Disconnect", command=self.ask_disconnection)
-        auxiliary_classes.global_data.menu_connection.add_cascade(label="Settings", menu=setting_menu)
-        auxiliary_classes.global_data.menu_connection.add_cascade(label="Exit", command=self.ask_exit)
-
-        self.master.config(menu=auxiliary_classes.global_data.menu_connection)
+        self.master.geometry("860x460")
         self.master.pack_propagate(0)
 
-        # The content of the frame
-        title_frame = Frame(self.master, width=830, background="#D8D8D8", height=40)
-        top_frame = Frame(self.master, width=830, height=80)
-        center_frame = Frame(self.master, background='gray', width=830, height=200, padx=3, pady=3)
-        bottom_frame = Frame(self.master, background='#0B6623', width=830, height=60, padx=3, pady=3)
-        title_frame.grid(row=0, sticky="ew")
-        top_frame.grid(row=1, sticky="ew", pady=3)
-        center_frame.grid(row=2, sticky="nsew")
-        bottom_frame.grid(row=3, sticky="ew")
+        """Declaration of outer frames"""
+        # Declaration frames of the UI and configuring.
+        header_frame = Frame(self.master, width=860, height=40)
+        settings_frame = Frame(self.master, width=860, height=30)
+        bottom_frame = Frame(self.master, width=860, height=360)
+        queue_frame = Frame(bottom_frame, width=660, height=360, padx=3, pady=3)
+        stats_frame = Frame(bottom_frame, width=200, height=360, bg="#e6e6e6")
+        header_frame.pack(fill=BOTH, expand=True)
+        settings_frame.pack(fill=BOTH, expand=True)
+        bottom_frame.pack(fill=BOTH, expand=True)
+        stats_frame.pack(side=LEFT, padx=3, pady=3, fill=BOTH, expand=True)
+        queue_frame.pack(side=RIGHT, padx=3, fill=BOTH, expand=True)
         self.master.grid_rowconfigure(0, weight=1)
         self.master.grid_columnconfigure(0, weight=1)
-        # Top Frame Frames
-        connection_frame = Frame(top_frame, width=260, height=90)
-        cpu_frame = Frame(top_frame, width=180, height=70, borderwidth=1, relief=RIDGE)
-        ram_frame = Frame(top_frame, width=215, height=70, borderwidth=1, relief=RIDGE)
-        disk_frame = Frame(top_frame, width=175, height=70, borderwidth=1, relief=RIDGE)
-        connection_frame.grid(row=0, column=0, sticky="ew")
-        cpu_frame.grid(row=0, column=1, sticky="nsew", padx=(50, 0))
-        ram_frame.grid(row=0, column=2, sticky="nsew", padx=(10, 0))
-        disk_frame.grid(row=0, column=3, sticky="nsew", padx=(10, 0))
-        Label(title_frame, text="SimQ", background="#D8D8D8", foreground="green", font=("Helvetica", 14, "bold")).pack()
+
+        """Declaration of inner frames"""
+        # Header_frame needs icon, Name of the Tool, Connection stats, Project completion stats, Disconnect option
+        img = PhotoImage(file=r'resources\CPU.png')
+        icon_frame = Label(header_frame, image=img, highlightthickness=0, borderwidth=0)
+        icon_frame.photo = img
+        icon_frame.pack(side=LEFT, padx=3)
+        name_frame = Label(header_frame, text="SimQ", font=("Arial", 14, "bold"))
+        name_frame.pack(side=LEFT, padx=3)
+        queue_stats = Label(header_frame, text="STATS HERE")
+        queue_stats.pack(side=LEFT, anchor="center")
+        disconnect_frame = Label(header_frame, text="Disconnect")
+        disconnect_frame.pack(side=RIGHT)
+        connection_frame = Frame(header_frame, width=260, height=90)
+        connection_frame.pack(side=RIGHT)
+
+        # settings_frame will just have a label frame for text (for now).
+        text = Label(settings_frame, text="Settings", bg="green")
+        text.pack(fill=BOTH)
+
+        # stats_frame need's three stats frames CPU, RAM and DISK.
+        cpu_frame = Frame(stats_frame, width=200, height=70, borderwidth=1, relief=RIDGE)
+        ram_frame = Frame(stats_frame, width=200, height=70, borderwidth=1, relief=RIDGE)
+        disk_frame = Frame(stats_frame, width=200, height=70, borderwidth=1, relief=RIDGE)
+        cpu_frame.pack(fill=BOTH, padx=(5, 3), pady=(0, 3), expand=True)
+        ram_frame.pack(fill=BOTH, padx=(5, 3), pady=3, expand=True)
+        disk_frame.pack(fill=BOTH, padx=(5, 3), pady=3, expand=True)
+
+        # queue_frame will have 3 frames, one for header text,
+        # one for processing of tasks, one for listbox and one for two buttons
+        header_listbox = Frame(queue_frame, width=664, height=50)
+        listbox_frame = Frame(queue_frame, width=664, height=208)
+        bottom_frame = Frame(queue_frame, width=830, height=50, padx=3, pady=3)
+        header_listbox.grid(row=0, sticky="ew")
+        listbox_frame.grid(row=1, sticky="nsew")
+        bottom_frame.grid(row=2, sticky="ew")
+        auxiliary_classes.global_data.my_list = listbox.DDList(listbox_frame, height=6)
+
+        # Configuring Connection frame
         Label(connection_frame, text="Host:").grid(row=0, column=0, sticky=E)
         auxiliary_classes.global_data.iplabel = Label(connection_frame, text=config.host)
         auxiliary_classes.global_data.iplabel.grid(row=0, column=1, sticky=E)
@@ -103,56 +122,133 @@ class Window(Frame):
         auxiliary_classes.global_data.status_queue_label = Label(connection_frame, text="Stopped", foreground="red")
         auxiliary_classes.global_data.status_label.grid(row=1, column=1, sticky=E)
         auxiliary_classes.global_data.status_queue_label.grid(row=2, column=1, sticky=E)
-        Label(cpu_frame, text="CPU", font=("Helvetica", 10, "bold")).grid(row=0, column=0, sticky=W)
-        Label(cpu_frame, text="CPU 0:").grid(row=1, column=0, sticky=E)
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_frame, text="--"))
-        auxiliary_classes.global_data.cpu_list[0].grid(row=1, column=1, sticky=W)
-        Label(cpu_frame, text="CPU 1:").grid(row=2, column=0, sticky=E)
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_frame, text="--"))
-        auxiliary_classes.global_data.cpu_list[1].grid(row=2, column=1, sticky=W)
-        Label(cpu_frame, text="CPU 2:").grid(row=1, column=2, sticky=E)
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_frame, text="--"))
-        auxiliary_classes.global_data.cpu_list[2].grid(row=1, column=3, sticky=W)
-        Label(cpu_frame, text="CPU 3:").grid(row=2, column=2, sticky=E)
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_frame, text="--"))
-        auxiliary_classes.global_data.cpu_list[3].grid(row=2, column=3, sticky=W)
-        Label(ram_frame, text="RAM", font=("Helvetica", 10, "bold")).grid(row=0, column=0, sticky=W)
-        Label(ram_frame, text="total:").grid(row=1, column=0, sticky=E, padx=(10, 0))
-        auxiliary_classes.global_data.ram_stats.append(Label(ram_frame, text="--"))
-        auxiliary_classes.global_data.ram_stats[0].grid(row=1, column=1, sticky=W)
-        Label(ram_frame, text="used:").grid(row=2, column=0, sticky=E, padx=(10, 0))
-        auxiliary_classes.global_data.ram_stats.append(Label(ram_frame, text="--"))
-        auxiliary_classes.global_data.ram_stats[1].grid(row=2, column=1, sticky=W)
-        Label(ram_frame, text="free:").grid(row=1, column=2, sticky=E)
-        auxiliary_classes.global_data.ram_stats.append(Label(ram_frame, text="--"))
-        auxiliary_classes.global_data.ram_stats[2].grid(row=1, column=3, sticky=W)
-        Label(ram_frame, text="usage:").grid(row=2, column=2, sticky=E)
-        auxiliary_classes.global_data.ram_stats.append(Label(ram_frame, text="--"))
-        auxiliary_classes.global_data.ram_stats[3].grid(row=2, column=3, sticky=W)
-        Label(disk_frame, text="Disk", font=("Helvetica", 10, "bold")).grid(row=0, column=0, sticky=W)
-        Label(disk_frame, text="total:").grid(row=1, column=0, sticky=E, padx=(10, 0))
-        auxiliary_classes.global_data.disk_storage.append(Label(disk_frame, text="--"))
-        auxiliary_classes.global_data.disk_storage[0].grid(row=1, column=1, sticky=W)
-        Label(disk_frame, text="used:").grid(row=2, column=0, sticky=E, padx=(10, 0))
-        auxiliary_classes.global_data.disk_storage.append(Label(disk_frame, text="--"))
-        auxiliary_classes.global_data.disk_storage[1].grid(row=2, column=1, sticky=W)
-        Label(disk_frame, text="free:").grid(row=1, column=2, sticky=E)
-        auxiliary_classes.global_data.disk_storage.append(Label(disk_frame, text="--"))
-        auxiliary_classes.global_data.disk_storage[2].grid(row=1, column=3, sticky=W)
-        Label(disk_frame, text="usage:").grid(row=2, column=2, sticky=E)
-        auxiliary_classes.global_data.disk_storage.append(Label(disk_frame, text="--"))
-        auxiliary_classes.global_data.disk_storage[3].grid(row=2, column=3, sticky=W)
-        auxiliary_classes.global_data.my_list = listbox.DDList(center_frame, height=6)
-        # Defining buttons
-        auxiliary_classes.global_data.delete_button = ttk.Button(bottom_frame, text='Delete', state="disabled",
-                                               command=auxiliary_classes.global_data.my_list.delete)
+
+        # Configuring Cpu stats frame
+
+        cpu_header = Frame(cpu_frame, width=170, height=12)
+        cpu_header.pack(side=TOP, fill=BOTH)
+        cpu_body = Frame(cpu_frame, width=170, height=60)
+        cpu_body.pack(side=BOTTOM, fill=BOTH, expand=True)
+        cpu_body_left = Frame(cpu_body, width=85, height=60, bg="gray80")
+        cpu_body_left.pack(side=LEFT, fill=BOTH, expand=True)
+        cpu_body_right = Frame(cpu_body, width=85, height=60)
+        cpu_body_right.pack(side=RIGHT, fill=BOTH, expand=True)
+        cpu_tag = Frame(cpu_body_left, width=40, height=60, bg="gray80")
+        cpu_tag.pack(side=LEFT, fill=BOTH, expand=True)
+        cpu_val = Frame(cpu_body_left, width=40, height=60, bg="gray80")
+        cpu_val.pack(side=RIGHT, fill=BOTH, expand=True)
+        img = PhotoImage(file=r'resources\cpu_picto.png')
+        aux_frame = Frame(cpu_header, width=170, height=10)
+        aux_frame.pack(fill=BOTH)
+        one = Label(aux_frame, image=img, highlightthickness=0, borderwidth=0)
+        one.photo = img
+        one.pack(side=LEFT)
+        Label(aux_frame, text="CPU", font=("Arial", 10, "bold")).pack(side=LEFT, padx=3)
+        ttk.Separator(cpu_header, orient=HORIZONTAL).pack(side=BOTTOM, fill=X, expand=True)
+        Label(cpu_tag, text="CPU 0:", font=("Arial", 8), bg="gray80").pack()
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="gray80"))
+        auxiliary_classes.global_data.cpu_list[0].pack(fill=BOTH, expand=True, padx=4)
+        Label(cpu_tag, text="CPU 1:", font=("Arial", 8), bg="gray80").pack()
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="gray80"))
+        auxiliary_classes.global_data.cpu_list[1].pack(fill=BOTH, padx=4, expand=True)
+        Label(cpu_tag, text="CPU 2:", font=("Arial", 8), bg="gray80").pack()
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="gray80"))
+        auxiliary_classes.global_data.cpu_list[2].pack(fill=BOTH, padx=4, expand=True)
+        Label(cpu_tag, text="CPU 3:", font=("Arial", 8), bg="gray80").pack()
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="gray80"))
+        auxiliary_classes.global_data.cpu_list[3].pack(fill=BOTH, padx=4, expand=True)
+        auxiliary_classes.global_data.cpu_avg = Label(cpu_body_right, text="--",
+                                                      font=("Arial", 11, "bold"))
+        auxiliary_classes.global_data.cpu_avg.pack(side=BOTTOM)
+        Label(cpu_body_right, text="USAGE", font=("Arial", 8, "bold"), foreground="gray").pack(side=BOTTOM, pady=(5, 0))
+
+        # Configuring RAM stats frame
+        ram_header = Frame(ram_frame, width=170, height=12)
+        ram_header.pack(side=TOP, fill=BOTH)
+        ram_body = Frame(ram_frame, width=170, height=60)
+        ram_body.pack(side=BOTTOM, fill=BOTH, expand=True)
+        ram_body_left = Frame(ram_body, width=85, height=60, bg="gray80")
+        ram_body_left.pack(side=LEFT, fill=BOTH, expand=True)
+        ram_body_right = Frame(ram_body, width=85, height=60)
+        ram_body_right.pack(side=RIGHT, fill=BOTH, expand=True)
+        ram_tag = Frame(ram_body_left, width=40, height=60, bg="gray80")
+        ram_tag.pack(side=LEFT, fill=BOTH, expand=True)
+        ram_val = Frame(ram_body_left, width=40, height=60, bg="gray80")
+        ram_val.pack(side=RIGHT, fill=BOTH, expand=True)
+        img = PhotoImage(file=r'resources\ram_picto.png')
+        aux_frame = Frame(ram_header, width=170, height=10)
+        aux_frame.pack(fill=BOTH)
+        one = Label(aux_frame, image=img, highlightthickness=0, borderwidth=0)
+        one.photo = img
+        one.pack(side=LEFT)
+        Label(aux_frame, text="RAM", font=("Arial", 10, "bold")).pack(side=LEFT, padx=3)
+        ttk.Separator(ram_header, orient=HORIZONTAL).pack(side=BOTTOM, fill=X, expand=True)
+        Label(ram_tag, text="total:", font=("Arial", 8), bg="gray80").pack()
+        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 8), bg="gray80"))
+        auxiliary_classes.global_data.ram_stats[0].pack()
+        Label(ram_tag, text="used:", font=("Arial", 8), bg="gray80").pack()
+        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 8), bg="gray80"))
+        auxiliary_classes.global_data.ram_stats[1].pack()
+        Label(ram_tag, text="free:", font=("Arial", 8), bg="gray80").pack()
+        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 8), bg="gray80"))
+        auxiliary_classes.global_data.ram_stats[2].pack()
+        auxiliary_classes.global_data.ram_stats.append(Label(ram_body_right, text="--",
+                                                             font=("Arial", 11, "bold"),
+                                                             foreground="green"))
+        auxiliary_classes.global_data.ram_stats[3].pack(side=BOTTOM)
+        Label(ram_body_right, text="USAGE", font=("Arial", 8, "bold"), foreground="gray").pack(side=BOTTOM)
+        # Configuring Disk stats frame
+        
+        disk_header = Frame(disk_frame, width=170, height=12)
+        disk_header.pack(side=TOP, fill=BOTH)
+        disk_body = Frame(disk_frame, width=170, height=60)
+        disk_body.pack(side=BOTTOM, fill=BOTH, expand=True)
+        disk_body_left = Frame(disk_body, width=85, height=60, bg="gray80")
+        disk_body_left.pack(side=LEFT, fill=BOTH, expand=True)
+        disk_body_right = Frame(disk_body, width=85, height=60)
+        disk_body_right.pack(side=RIGHT, fill=BOTH, expand=True)
+        disk_tag = Frame(disk_body_left, width=40, height=60, bg="gray80")
+        disk_tag.pack(side=LEFT, fill=BOTH, expand=True)
+        disk_val = Frame(disk_body_left, width=40, height=60, bg="gray80")
+        disk_val.pack(side=RIGHT, fill=BOTH, expand=True)
+
+        img = PhotoImage(file=r'resources\disk_picto.png')
+        aux_frame = Frame(disk_header, width=170, height=10)
+        aux_frame.pack(fill=BOTH)
+        one = Label(aux_frame, image=img, highlightthickness=0, borderwidth=0)
+        one.photo = img
+        one.pack(side=LEFT)
+        Label(aux_frame, text="DISK", font=("Arial", 10, "bold")).pack(side=LEFT, padx=3)
+        ttk.Separator(disk_header, orient=HORIZONTAL,).pack(side=BOTTOM, fill=X, expand=True)
+        Label(disk_tag, text="total:", font=("Arial", 8), bg="gray80").pack()
+        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 8), bg="gray80"))
+        auxiliary_classes.global_data.disk_storage[0].pack()
+        Label(disk_tag, text="used:", font=("Arial", 8), bg="gray80").pack()
+        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 8), bg="gray80"))
+        auxiliary_classes.global_data.disk_storage[1].pack()
+        Label(disk_tag, text="free:", font=("Arial", 8), bg="gray80").pack()
+        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 8), bg="gray80"))
+        auxiliary_classes.global_data.disk_storage[2].pack()
+        auxiliary_classes.global_data.disk_storage.append(Label(disk_body_right, text="--", font=("Arial", 11, "bold"),
+                                                                foreground="green"))
+        auxiliary_classes.global_data.disk_storage[3].pack(side=BOTTOM)
+        Label(disk_body_right, text="USAGE", font=("Arial", 8, "bold"), foreground="gray").pack(side=BOTTOM)
+
+        # Defining buttons for queue_frame
+        
+        auxiliary_classes.global_data.delete_button = ttk.Button(bottom_frame, 
+                                                                 text='Delete', 
+                                                                 state="disabled", 
+                                                                 command=auxiliary_classes.global_data.my_list.delete)
         auxiliary_classes.global_data.delete_button.pack(side=RIGHT, fill=BOTH, padx=(5, 10))
-        Button(bottom_frame, text='Add', command=self.add_project).pack(side=RIGHT, fill=Y, padx=(10, 0))
-        auxiliary_classes.global_data.status_button = Button(bottom_frame, text='Start Queue', command=self.toggle_queue_status)
+        ttk.Button(bottom_frame, text='Add', command=self.add_project).pack(side=RIGHT, fill=Y, padx=(10, 0))
+        auxiliary_classes.global_data.status_button = ttk.Button(bottom_frame, 
+                                                                 text='Start', 
+                                                                 command=self.toggle_queue_status)
         auxiliary_classes.global_data.status_button.pack(side=LEFT, padx=(10, 0))
 
         # Config of frames
-        title_frame.grid_propagate(False)
+        stats_frame.grid_propagate(False)
         cpu_frame.grid_propagate(False)
         ram_frame.grid_propagate(False)
         disk_frame.grid_propagate(False)
@@ -171,18 +267,15 @@ class Window(Frame):
             auxiliary_classes.global_data.status_button.config(text="Start Queue")
             auxiliary_classes.global_data.status_queue_label.config(text="Stopped", foreground="red")
 
-    def save_action(self):
-        pass
-
     def add_project(self):
         reload(config)
-        targetpath = f"\\\\{config.host}\\Projects"
-        filepath = filedialog.askopenfilename(parent=auxiliary_classes.root, filetypes=(("Script Files", "*.SCRIPT"),
-                                                                      ("All Files", "*.*")),
-                                              initialdir=targetpath,
-                                              title='Please select a .SCRIPT project')
-        if len(filepath) > 0:
-            self.add_to_queue(filepath)
+        target_path = f"\\\\{config.host}\\Projects"
+        file_path = filedialog.askopenfilename(parent=auxiliary_classes.root, 
+                                               filetypes=(("Script Files", "*.SCRIPT"), ("All Files", "*.*")), 
+                                               initialdir=target_path, 
+                                               title='Please select a .SCRIPT project')
+        if len(file_path) > 0:
+            self.add_to_queue(file_path)
 
     def start_queue(self):
         while auxiliary_classes.global_data.queue_running:
@@ -278,12 +371,12 @@ class Window(Frame):
         self.center(self.top)
         # Removing bordes and adding motion
         self.top.overrideredirect(1)
-        self.top.bind("<ButtonPress-1>", self.StartMove)
-        self.top.bind('<ButtonRelease-1>', self.StopMove)
-        self.top.bind("<B1-Motion>", self.OnMotion)
+        self.top.bind("<ButtonPress-1>", self.start_move)
+        self.top.bind('<ButtonRelease-1>', self.stop_move)
+        self.top.bind("<B1-Motion>", self.on_motion)
         self.top.bind("<Return>", lambda event: self.update_credentials(host.get(),
-                                                            user.get(),
-                                                            password.get()))
+                                                                        user.get(), 
+                                                                        password.get()))
         # Window size
         self.top.geometry("676x480")
 
@@ -304,27 +397,27 @@ class Window(Frame):
         r_buttons_frame.pack(fill=BOTH, pady=(8, 2))
         r_loading_frame.pack(fill=BOTH, pady=(2, 8))
         r_footer_frame.pack(fill=BOTH)
-        exit_button = Button(r_top_frame, text="X", font=('Arial',11,'bold'), fg = "grey")
+        exit_button = Button(r_top_frame, text="X", font=('Arial', 11, 'bold'), fg="grey")
         exit_button.config(relief=FLAT)
         exit_button.bind('<Button-1>', quit)
         exit_button.pack(side=RIGHT)
         img = PhotoImage(file=r'resources\Cover_Lines.png')
-        self.master.one = Label(left_frame, image=img, highlightthickness=0, borderwidth =0)
-        self.master.one.photo = img
-        self.master.one.pack(side=RIGHT)
+        one = Label(left_frame, image=img, highlightthickness=0, borderwidth=0)
+        one.photo = img
+        one.pack(side=RIGHT)
         img = PhotoImage(file=r'resources\LIO_SE_195x40.png')
-        self.master.two = Label(r_footer_frame, image=img )
-        self.master.two.pack(side=RIGHT, padx=(0,25))
-        self.master.two.photo = img
+        two = Label(r_footer_frame, image=img)
+        two.pack(side=RIGHT, padx=(0, 25))
+        two.photo = img
         auxiliary_classes.global_data.progress = ttk.Progressbar(r_loading_frame, length=100, value=0)
         auxiliary_classes.global_data.msg_refused = Label(r_loading_frame,
                                                           text="Connection failed, check credentials and try again.",
                                                           fg="red",
                                                           font=('Arial', 9, 'italic'))
-        auxiliary_classes.global_data.msg_entry = Label(r_loading_frame,
-                                                      text="Please, fill all entry fields.",
-                                                      fg="red",
-                                                      font=('Arial', 9, 'italic'))
+        auxiliary_classes.global_data.msg_entry = Label(r_loading_frame, 
+                                                        text="Please, fill all entry fields.", 
+                                                        fg="red", 
+                                                        font=('Arial', 9, 'italic'))
         host = StringVar(value="Host")
         user = StringVar(value="User")
         password = StringVar(value="Password")
@@ -335,32 +428,37 @@ class Window(Frame):
         # user.set(config.user)
         # password.set(base64.b64decode(config.password).decode())
 
-        e1 = ttk.Entry(r_entry_frame, textvariable=host, font=('Arial', 14, 'italic'), foreground = "grey")
-        e2 = ttk.Entry(r_entry_frame, textvariable=user, font=('Arial', 14, 'italic'), foreground = "grey")
-        e3 = ttk.Entry(r_entry_frame, textvariable=password, font=('Arial', 14, 'italic'), foreground = "grey")
+        e1 = ttk.Entry(r_entry_frame, textvariable=host, font=('Arial', 14, 'italic'), foreground="grey")
+        e2 = ttk.Entry(r_entry_frame, textvariable=user, font=('Arial', 14, 'italic'), foreground="grey")
+        e3 = ttk.Entry(r_entry_frame, textvariable=password, font=('Arial', 14, 'italic'), foreground="grey")
         e3.config(show="*")
-        e1.pack(pady=(25,8))
+        e1.pack(pady=(25, 8))
         e2.pack(pady=8)
-        e3.pack(pady=(8,0))
-
+        e3.pack(pady=(8, 0))
         check_button = ttk.Checkbutton(
             r_buttons_frame, text="Remember me", variable=auxiliary_classes.global_data.checkbox, onvalue=True)
         check_button.pack(side=TOP, anchor=W, padx=(35, 0), pady=(0, 4))
         imag_last = PhotoImage(file=r'resources\LastSession_button.png')
         auxiliary_classes.global_data.button1 = Button(r_buttons_frame, command=quit)
-        auxiliary_classes.global_data.button1.config(image=imag_last, bd=0, width="240", height="32", command= self.update_credentials)
+        auxiliary_classes.global_data.button1.config(image=imag_last, 
+                                                     bd=0, width="240", 
+                                                     height="32", 
+                                                     command=self.update_credentials)
         auxiliary_classes.global_data.button1.photo = imag_last
         login_img = PhotoImage(file=r'resources\Login_button.png')
-        auxiliary_classes.global_data.button2 = Button(r_buttons_frame, text="Connect",
-                                                            command=lambda: self.update_credentials(host.get(),
-                                                            user.get(),
-                                                            password.get()))
+        auxiliary_classes.global_data.button2 = Button(r_buttons_frame, 
+                                                       text="Connect", 
+                                                       command=lambda: self.update_credentials(host.get(), 
+                                                                                               user.get(), 
+                                                                                               password.get()))
         auxiliary_classes.global_data.button2.config(image=login_img, bd=0, width="240", height="32")
         auxiliary_classes.global_data.button2.photo = login_img
         auxiliary_classes.global_data.button2.pack(pady=5)
         auxiliary_classes.global_data.button1.pack(pady=8)
 
-    def update_credentials(self, host=config.host, user=config.user, password=base64.b64decode(config.password).decode()):
+    def update_credentials(self, host=config.host, 
+                           user=config.user, 
+                           password=base64.b64decode(config.password).decode()):
         # First update the credentials of the config file.
         auxiliary_classes.global_data.msg_refused.place_forget()
         auxiliary_classes.global_data.msg_entry.place_forget()
@@ -380,7 +478,9 @@ class Window(Frame):
                 sf.write(f"host = \"{host}\" \nuser = \"{user}\" \npassword = {encoded_password}")
             reload(config)
         auxiliary_classes.global_data.progress.place(relx=0.5, rely=0.5, anchor=CENTER)
-        auxiliary_classes.global_data.session = session.Session(config.host, config.user, base64.b64decode(config.password).decode())
+        auxiliary_classes.global_data.session = session.Session(config.host, 
+                                                                config.user, 
+                                                                base64.b64decode(config.password).decode())
         auxiliary_classes.global_data.host = config.host
         auxiliary_classes.global_data.progress.step(30)
         t = threading.Thread(target=self.connect_via_ssh)
@@ -426,14 +526,15 @@ class Window(Frame):
                         auxiliary_classes.global_data.heap_queue = saved_session[1]
                         auxiliary_classes.global_data.projects_queue = saved_session[2]
                         auxiliary_classes.global_data.data_table = saved_session[3]
+            auxiliary_classes.global_data.my_list.update()
         except EOFError:
             pass
         auxiliary_classes.global_data.progress.step(9.99)
-        auxiliary_classes.global_data.my_list.update()
 
     @staticmethod
     def pickle_session():
-        if not auxiliary_classes.global_data.queue_running and not auxiliary_classes.global_data.my_list.project_running():
+        if not auxiliary_classes.global_data.queue_running and\
+                not auxiliary_classes.global_data.my_list.project_running():
             try:
                 with open("object.pickle", "rb") as r:
                     stored_data = pickle.load(r)
@@ -448,7 +549,10 @@ class Window(Frame):
                     saved = True
             if not saved:
                 stored_data.append(
-                    [auxiliary_classes.global_data.host, auxiliary_classes.global_data.heap_queue, auxiliary_classes.global_data.projects_queue, auxiliary_classes.global_data.data_table])
+                    [auxiliary_classes.global_data.host,
+                     auxiliary_classes.global_data.heap_queue,
+                     auxiliary_classes.global_data.projects_queue,
+                     auxiliary_classes.global_data.data_table])
             with open("object.pickle", "wb") as w:
                 pickle.dump(stored_data, w)
         elif auxiliary_classes.global_data.queue_running:

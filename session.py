@@ -124,30 +124,60 @@ class Session:
                 break
             if "Mem:" in line:
                 line = line.split()
+                usage = (100 * (int(line[2]) / int(line[1])))
+                if "G" in line[0]:
+                    i = 0
+                elif "G" in line[1]:
+                    i = 1
+                if usage < 60:
+                    color = "green"
+                elif 60 <= usage < 90:
+                    color = "orange"
+                else:
+                    color = "red"
                 auxiliary_classes.global_data.ram_stats[0].config(text=line[1] + "MB")
                 auxiliary_classes.global_data.ram_stats[1].config(text=line[2] + "MB")
                 auxiliary_classes.global_data.ram_stats[2].config(text=line[3] + "MB")
-                auxiliary_classes.global_data.ram_stats[3].config(text=str(100 * (int(line[2]) / int(line[1])))[:5] + "%")
+                auxiliary_classes.global_data.ram_stats[3].config(text=str(usage)[:5] + "%", foreground=color)
 
     def gen_disk_stats(self):
         stdin, stdout, stderr = self.ssh.exec_command('df -h /home && while sleep 5; do df -h /home; done',
                                                       get_pty=True)
+        i = 0
         for line in iter(stdout.readline, ""):
             if self.flag_stop:
                 break
             line = line.split()
             if len(line) > 1:
                 if "G" in line[0]:
-                    auxiliary_classes.global_data.disk_storage[0].config(text=line[0] + "B")
-                    auxiliary_classes.global_data.disk_storage[1].config(text=line[1] + "B")
-                    auxiliary_classes.global_data.disk_storage[2].config(text=line[2] + "B")
-                    auxiliary_classes.global_data.disk_storage[3].config(text=line[3])
+                    i = 0
                 elif "G" in line[1]:
-                    auxiliary_classes.global_data.disk_storage[0].config(text=line[1] + "B")
-                    auxiliary_classes.global_data.disk_storage[1].config(text=line[2] + "B")
-                    auxiliary_classes.global_data.disk_storage[2].config(text=line[3] + "B")
-                    auxiliary_classes.global_data.disk_storage[3].config(text=line[4])
+                    i = 1
+                try:
+                    usage = int(line[3+i][:line[3+i].find("%")])
+                    if usage < 60:
+                        color = "green"
+                    elif 60 <= usage < 90:
+                        color = "orange"
+                    else:
+                        color = "red"
+                    auxiliary_classes.global_data.disk_storage[0].config(text=line[0+i] + "B")
+                    auxiliary_classes.global_data.disk_storage[1].config(text=line[1+i] + "B")
+                    auxiliary_classes.global_data.disk_storage[2].config(text=line[2+i] + "B")
+                    auxiliary_classes.global_data.disk_storage[3].config(text=line[3+i], foreground=color)
+                except:
+                    pass
 
     def update_gui_values(self, values):
+        avg = 0
         for x in range(self.cpu_number):
+            avg += int(values[x][:values[x].find("%")])
             auxiliary_classes.global_data.cpu_list[x].config(text=values[x])
+        avg = round(avg/4)
+        if avg < 60:
+            color = "green"
+        elif 60 <= avg < 90:
+            color = "orange"
+        else:
+            color = "red"
+        auxiliary_classes.global_data.cpu_avg.config(text=str(avg)+"%", foreground = color)
