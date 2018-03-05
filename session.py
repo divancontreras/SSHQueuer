@@ -112,7 +112,7 @@ class Session:
                 if len(line) > 1:
                     if float(line[2]) != "nan":
                         self.cpu_usage.append(str(round(float(line[3]))) + "%")
-                        if int(line[1]) == self.cpu_number - 1 or int(line[2]) == self.cpu_number - 1:
+                        if int(line[2]) == self.cpu_number - 1:
                             self.update_gui_values(self.cpu_usage)
                             self.cpu_usage = []
             except ValueError:

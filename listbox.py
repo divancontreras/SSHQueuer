@@ -17,9 +17,9 @@ class DDList:
         self.dataCols = ('Project Name', 'Status', 'Cores', 'Turn', 'Added date/time')
         self.tree = ttk.Treeview(columns=self.dataCols,
                                  show='headings')
+        self.tree.column("Project Name", anchor="center")
         self.mouse_event = None
         self.moved_flag = False
-        ysb = ttk.Scrollbar(orient=VERTICAL, command=self.tree.yview)
         self.popup_menu = Menu(master, tearoff=0)
         self.popup_menu.add_command(label="Delete",
                                     command=lambda: self.delete(self.mouse_event))
@@ -31,10 +31,8 @@ class DDList:
         #                             command=lambda: self.do_pause_process(self.mouse_event))
         # self.popup_menu.add_command(label="Resume",
         #                             command=lambda: self.do_resume_process(self.mouse_event))
-        self.tree['yscroll'] = ysb.set
         self.tree.grid(in_=f, row=0, column=0, sticky=NSEW)
 
-        ysb.grid(in_=f, row=0, column=1, sticky=NS)
 
         # set frame resize priorities
         f.rowconfigure(0, weight=1)
