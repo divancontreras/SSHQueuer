@@ -1,6 +1,6 @@
 config.py
-venv
-env
-env1
-__pycache__
-.idea
+/venv
+/env
+/env1
+/__pycache__
+/.idea
