@@ -8,10 +8,9 @@ import window
 
 def on_closing():
     result = messagebox.askquestion("Exit", "Are  you sure you want to exit?", icon='warning')
-    if result == 'yes':
-        pass
-    else:
+    if result == 'no':
         return
+    app.disconnect()
     if not auxiliary_classes.global_data.queue_running and not auxiliary_classes.global_data.my_list.project_running():
         with open("object.pickle", "rb") as r:
             stored_data = pickle.load(r)

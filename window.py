@@ -5,7 +5,7 @@ import threading
 from datetime import datetime
 from importlib import reload
 from tkinter import *
-from tkinter import ttk, filedialog, Frame, Label, messagebox
+from tkinter import ttk, filedialog, Frame, Label, messagebox, font
 import pickle
 # Local Imports
 import auxiliary_classes
@@ -54,108 +54,173 @@ class Window(Frame):
         else:
             return
 
+    def toggle_underline(self, event):
+        f = font.Font(event.widget, event.widget.cget("font"))
+        if f.cget("underline") != 1:
+            f.configure(underline=True)
+        else:
+            f.configure(underline=False)
+        event.widget.configure(font=f)
+
     def init_window(self):
         # Init window, set title and geomtry of window.
         self.master.title("SimQ")
-        self.master.geometry("860x460")
+        self.master.geometry("1024x664")
         self.master.pack_propagate(0)
 
         """Declaration of outer frames"""
         # Declaration frames of the UI and configuring.
-        header_frame = Frame(self.master, width=860, height=40)
-        settings_frame = Frame(self.master, width=860, height=30)
-        bottom_frame = Frame(self.master, width=860, height=360)
-        queue_frame = Frame(bottom_frame, width=660, height=360, padx=3, pady=3)
-        stats_frame = Frame(bottom_frame, width=200, height=360, bg="#e6e6e6")
-        header_frame.pack(fill=BOTH, expand=True)
+        header_frame = Frame(self.master, width=1024, height=62)
+        settings_frame = Frame(self.master, width=1024, height=32, bg="#3dcd58")
+        bottom_frame = Frame(self.master, width=1024, height=570, padx=3, bg="#e0dede")
+        queue_frame = Frame(bottom_frame, width=736, height=570, padx=10, borderwidth=1)
+        queue_frame.config(relief=RIDGE)
+        stats_frame = Frame(bottom_frame, width=288, bg="#e0dede")
+        header_frame.pack(fill=BOTH)
         settings_frame.pack(fill=BOTH, expand=True)
         bottom_frame.pack(fill=BOTH, expand=True)
-        stats_frame.pack(side=LEFT, padx=3, pady=3, fill=BOTH, expand=True)
-        queue_frame.pack(side=RIGHT, padx=3, fill=BOTH, expand=True)
-        self.master.grid_rowconfigure(0, weight=1)
-        self.master.grid_columnconfigure(0, weight=1)
+        stats_frame.pack(side=LEFT, padx=16, pady=16, fill=BOTH, expand=True)
+        queue_frame.pack(side=RIGHT, padx=16, pady=16, fill=BOTH, expand=True)
 
         """Declaration of inner frames"""
         # Header_frame needs icon, Name of the Tool, Connection stats, Project completion stats, Disconnect option
-        img = PhotoImage(file=r'resources\CPU.png')
-        icon_frame = Label(header_frame, image=img, highlightthickness=0, borderwidth=0)
+        img = PhotoImage(file=r'resources\Header_icon_simq.png')
+        icon_frame = Label(header_frame, height=62, width=121, image=img, highlightthickness=0, borderwidth=0)
         icon_frame.photo = img
-        icon_frame.pack(side=LEFT, padx=3)
-        name_frame = Label(header_frame, text="SimQ", font=("Arial", 14, "bold"))
-        name_frame.pack(side=LEFT, padx=3)
-        queue_stats = Label(header_frame, text="STATS HERE")
-        queue_stats.pack(side=LEFT, anchor="center")
-        disconnect_frame = Label(header_frame, text="Disconnect")
-        disconnect_frame.pack(side=RIGHT)
+        icon_frame.pack(side=LEFT, fill=BOTH)
+        disconnect_button = Button(header_frame, text="Disconnect", fg="#42b4e6", font=("Arial", 11)
+                                   ,command=self.new_connection)
+        disconnect_button.config(relief=FLAT, padx=3)
+        disconnect_button.bind("<Enter>", self.toggle_underline)
+        disconnect_button.bind("<Leave>", self.toggle_underline)
+        disconnect_button.pack(side=RIGHT)
         connection_frame = Frame(header_frame, width=260, height=90)
         connection_frame.pack(side=RIGHT)
 
         # settings_frame will just have a label frame for text (for now).
-        text = Label(settings_frame, text="Settings", bg="green")
-        text.pack(fill=BOTH)
+        text = Label(settings_frame, text="Settings", font=("Arial", 12), fg="white", bg="#3dcd58")
+        text.pack(side=LEFT, anchor="center", padx=5)
 
         # stats_frame need's three stats frames CPU, RAM and DISK.
-        cpu_frame = Frame(stats_frame, width=200, height=70, borderwidth=1, relief=RIDGE)
-        ram_frame = Frame(stats_frame, width=200, height=70, borderwidth=1, relief=RIDGE)
-        disk_frame = Frame(stats_frame, width=200, height=70, borderwidth=1, relief=RIDGE)
-        cpu_frame.pack(fill=BOTH, padx=(5, 3), pady=(0, 3), expand=True)
-        ram_frame.pack(fill=BOTH, padx=(5, 3), pady=3, expand=True)
-        disk_frame.pack(fill=BOTH, padx=(5, 3), pady=3, expand=True)
+        status_frame = Frame(stats_frame, width=256, height=128, borderwidth=1, relief=RIDGE)
+        cpu_frame = Frame(stats_frame, width=256, height=128, borderwidth=1, relief=RIDGE)
+        ram_frame = Frame(stats_frame, width=256, height=128, borderwidth=1, relief=RIDGE)
+        disk_frame = Frame(stats_frame, width=256, height=128, borderwidth=1, relief=RIDGE)
+        status_frame.pack(fill=BOTH, pady=(0, 8))
+        cpu_frame.pack(fill=BOTH, pady=8)
+        ram_frame.pack(fill=BOTH, pady=8)
+        disk_frame.pack(fill=BOTH, pady=8)
 
         # queue_frame will have 3 frames, one for header text,
         # one for processing of tasks, one for listbox and one for two buttons
-        header_listbox = Frame(queue_frame, width=664, height=50)
+        header_listbox = Frame(queue_frame, width=664, height=100)
+        aux_frame = Frame(header_listbox, height=50, pady=5)
+        aux_frame.pack(fill=BOTH, expand=True)
+        img = PhotoImage(file=r'resources\simulation_queue.png')
+        icon_frame = Label(aux_frame, height=19, width=186, image=img, highlightthickness=0, borderwidth=0)
+        icon_frame.photo = img
+        icon_frame.pack(anchor="w", padx=5, pady=5)
+        ttk.Separator(aux_frame, orient=HORIZONTAL).pack(fill=X, expand=True)
+        progress_frame = Frame(header_listbox, height=10, pady=5)
+        progress_frame.pack(fill=BOTH)
+        s = ttk.Style()
+        s.configure("red.Horizontal.TProgressbar", foreground='green', background='#3dcd58', theme="alt")
+        auxiliary_classes.global_data.progress_queue = ttk.Progressbar(progress_frame, style="red.Horizontal.TProgressbar", orient="horizontal", length=600, mode="determinate",
+                        maximum=4, value=1)
+        # auxiliary_classes.global_data.progress_queue = ttk.Progressbar(progress_frame, style='Kim.TButton', length=100,
+        #                                                                value=0)
+        auxiliary_classes.global_data.progress_queue.pack(fill=X)
+
         listbox_frame = Frame(queue_frame, width=664, height=208)
-        bottom_frame = Frame(queue_frame, width=830, height=50, padx=3, pady=3)
-        header_listbox.grid(row=0, sticky="ew")
-        listbox_frame.grid(row=1, sticky="nsew")
-        bottom_frame.grid(row=2, sticky="ew")
+        bottom_frame = Frame(queue_frame, width=830, height=50, pady=5)
+        header_listbox.pack(fill=BOTH, expand=True)
+        listbox_frame.pack(fill=BOTH, expand=True)
+        bottom_frame.pack(fill=BOTH, expand=True)
         auxiliary_classes.global_data.my_list = listbox.DDList(listbox_frame, height=6)
 
         # Configuring Connection frame
-        Label(connection_frame, text="Host:").grid(row=0, column=0, sticky=E)
-        auxiliary_classes.global_data.iplabel = Label(connection_frame, text=config.host)
-        auxiliary_classes.global_data.iplabel.grid(row=0, column=1, sticky=E)
-        Label(connection_frame, text="Connection Status:").grid(row=1, column=0, sticky=W)
-        Label(connection_frame, text="Queue Status:").grid(row=2, column=0, sticky=W)
-        auxiliary_classes.global_data.status_label = Label(connection_frame, text="Disconnected", foreground="red")
-        auxiliary_classes.global_data.status_queue_label = Label(connection_frame, text="Stopped", foreground="red")
-        auxiliary_classes.global_data.status_label.grid(row=1, column=1, sticky=E)
-        auxiliary_classes.global_data.status_queue_label.grid(row=2, column=1, sticky=E)
+        img = PhotoImage(file=r'resources\User_picto.png')
+        icon_frame = Label(connection_frame, image=img, highlightthickness=0, borderwidth=0)
+        icon_frame.photo = img
+        icon_frame.pack(side=LEFT, anchor="e")
+        auxiliary_classes.global_data.iplabel = Label(connection_frame, text=config.host, fg="#3dcd58",
+                                                      font=("Arial", 11, "bold"))
+        auxiliary_classes.global_data.iplabel.pack(side=RIGHT, anchor="w")
+        # Label(connection_frame, text="Queue Status:").grid(row=2, column=0, sticky=W)
+        # auxiliary_classes.global_data.status_queue_label = Label(connection_frame, text="Stopped", foreground="red")
+
+        # Config Status Frame
+        status_frame
+        status_header = Frame(status_frame, width=256, height=28)
+        status_header.pack(side=TOP, fill=BOTH)
+        status_body = Frame(status_frame, width=256, height=100)
+        status_body.pack(side=BOTTOM, fill=BOTH, expand=True)
+        status_body_left = Frame(status_body, width=128, height=100, bg="#e8e8e8")
+        status_body_left.pack(side=LEFT, fill=BOTH, expand=True)
+        status_body_right = Frame(status_body, width=128, height=100, bg="#e8e8e8")
+        status_body_right.pack(side=RIGHT, fill=BOTH, expand=True)
+        status_tag = Frame(status_body_left, width=64, height=100, bg="#e8e8e8")
+        status_tag.pack(side=TOP, fill=BOTH, expand=True)
+        status_val = Frame(status_body_left, width=64, height=100, bg="#e8e8e8")
+        status_val.pack(side=BOTTOM, fill=BOTH, expand=True)
+        aux_frame = Frame(status_header, width=100, height=10)
+        aux_frame.pack(fill=BOTH, expand=True)
+        Label(aux_frame, text="Queue Stats", font=("Arial", 10, "bold"), fg="#333333").pack(side=LEFT, padx=3)
+        Label(status_tag, text="Completed", font=("Arial", 8), bg="#e8e8e8").pack(side=LEFT, padx=3)
+        img = PhotoImage(file=r'resources\completed_picto.png')
+        one = Label(status_tag, image=img, highlightthickness=0, borderwidth=0)
+        one.photo = img
+        one.pack(side=LEFT, padx=3)
+        img = PhotoImage(file=r'resources\error_picto.png')
+        one = Label(status_tag, image=img, highlightthickness=0, borderwidth=0)
+        one.photo = img
+        Label(status_tag, text="Errors", font=("Arial", 8), bg="#e8e8e8").pack(side=RIGHT, padx=3)
+        one.pack(side=RIGHT, padx=3)
+        img = PhotoImage(file=r'resources\information_picto.png')
+        one = Label(status_val, image=img, highlightthickness=0, borderwidth=0)
+        one.photo = img
+        Label(status_val, text="Running", font=("Arial", 8), bg="#e8e8e8").pack(side=LEFT, padx=3)
+        one.pack(side=LEFT, padx=3)
+        Label(status_val, text="Warnings", font=("Arial", 8), bg="#e8e8e8").pack(side=RIGHT, padx=3)
+        img = PhotoImage(file=r'resources\warning_picto.png')
+        one = Label(status_val, image=img, highlightthickness=0, borderwidth=0)
+        one.photo = img
+        one.pack(side=RIGHT, padx=3)
+        auxiliary_classes.global_data.status_avg = Label(status_body_right, text="--", font=("Arial", 11, "bold"))
 
         # Configuring Cpu stats frame
 
-        cpu_header = Frame(cpu_frame, width=170, height=12)
+        cpu_header = Frame(cpu_frame, width=256, height=28)
         cpu_header.pack(side=TOP, fill=BOTH)
-        cpu_body = Frame(cpu_frame, width=170, height=60)
+        cpu_body = Frame(cpu_frame, width=256, height=100)
         cpu_body.pack(side=BOTTOM, fill=BOTH, expand=True)
-        cpu_body_left = Frame(cpu_body, width=85, height=60, bg="gray80")
+        cpu_body_left = Frame(cpu_body, width=128, height=100, bg="#e8e8e8")
         cpu_body_left.pack(side=LEFT, fill=BOTH, expand=True)
-        cpu_body_right = Frame(cpu_body, width=85, height=60)
+        cpu_body_right = Frame(cpu_body, width=128, height=100)
         cpu_body_right.pack(side=RIGHT, fill=BOTH, expand=True)
-        cpu_tag = Frame(cpu_body_left, width=40, height=60, bg="gray80")
+        cpu_tag = Frame(cpu_body_left, width=64, height=100, bg="#e8e8e8")
         cpu_tag.pack(side=LEFT, fill=BOTH, expand=True)
-        cpu_val = Frame(cpu_body_left, width=40, height=60, bg="gray80")
+        cpu_val = Frame(cpu_body_left, width=64, height=100, bg="#e8e8e8")
         cpu_val.pack(side=RIGHT, fill=BOTH, expand=True)
         img = PhotoImage(file=r'resources\cpu_picto.png')
-        aux_frame = Frame(cpu_header, width=170, height=10)
-        aux_frame.pack(fill=BOTH)
+        aux_frame = Frame(cpu_header, width=100, height=10)
+        aux_frame.pack(fill=BOTH, expand=True)
         one = Label(aux_frame, image=img, highlightthickness=0, borderwidth=0)
         one.photo = img
-        one.pack(side=LEFT)
-        Label(aux_frame, text="CPU", font=("Arial", 10, "bold")).pack(side=LEFT, padx=3)
-        ttk.Separator(cpu_header, orient=HORIZONTAL).pack(side=BOTTOM, fill=X, expand=True)
-        Label(cpu_tag, text="CPU 0:", font=("Arial", 8), bg="gray80").pack()
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="gray80"))
+        one.pack(side=LEFT, padx=4)
+        Label(aux_frame, text="CPU", font=("Arial", 10, "bold"), fg="#333333").pack(side=LEFT, padx=3)
+        ttk.Separator(cpu_header, orient=HORIZONTAL).pack(fill=X, expand=True)
+        Label(cpu_tag, text="CPU 0:", font=("Arial", 8), bg="#e8e8e8").pack()
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="#e8e8e8"))
         auxiliary_classes.global_data.cpu_list[0].pack(fill=BOTH, expand=True, padx=4)
-        Label(cpu_tag, text="CPU 1:", font=("Arial", 8), bg="gray80").pack()
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="gray80"))
+        Label(cpu_tag, text="CPU 1:", font=("Arial", 8), bg="#e8e8e8").pack()
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="#e8e8e8"))
         auxiliary_classes.global_data.cpu_list[1].pack(fill=BOTH, padx=4, expand=True)
-        Label(cpu_tag, text="CPU 2:", font=("Arial", 8), bg="gray80").pack()
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="gray80"))
+        Label(cpu_tag, text="CPU 2:", font=("Arial", 8), bg="#e8e8e8").pack()
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="#e8e8e8"))
         auxiliary_classes.global_data.cpu_list[2].pack(fill=BOTH, padx=4, expand=True)
-        Label(cpu_tag, text="CPU 3:", font=("Arial", 8), bg="gray80").pack()
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="gray80"))
+        Label(cpu_tag, text="CPU 3:", font=("Arial", 8), bg="#e8e8e8").pack()
+        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 8), bg="#e8e8e8"))
         auxiliary_classes.global_data.cpu_list[3].pack(fill=BOTH, padx=4, expand=True)
         auxiliary_classes.global_data.cpu_avg = Label(cpu_body_right, text="--",
                                                       font=("Arial", 11, "bold"))
@@ -163,34 +228,34 @@ class Window(Frame):
         Label(cpu_body_right, text="USAGE", font=("Arial", 8, "bold"), foreground="gray").pack(side=BOTTOM, pady=(5, 0))
 
         # Configuring RAM stats frame
-        ram_header = Frame(ram_frame, width=170, height=12)
-        ram_header.pack(side=TOP, fill=BOTH)
-        ram_body = Frame(ram_frame, width=170, height=60)
+        ram_header = Frame(ram_frame, width=256, height=28)
+        ram_header.pack(side=TOP, fill=BOTH, pady=3, padx=3)
+        ram_body = Frame(ram_frame, width=256, height=60)
         ram_body.pack(side=BOTTOM, fill=BOTH, expand=True)
-        ram_body_left = Frame(ram_body, width=85, height=60, bg="gray80")
+        ram_body_left = Frame(ram_body, width=128, height=100, bg="#e8e8e8")
         ram_body_left.pack(side=LEFT, fill=BOTH, expand=True)
-        ram_body_right = Frame(ram_body, width=85, height=60)
+        ram_body_right = Frame(ram_body, width=128, height=100)
         ram_body_right.pack(side=RIGHT, fill=BOTH, expand=True)
-        ram_tag = Frame(ram_body_left, width=40, height=60, bg="gray80")
+        ram_tag = Frame(ram_body_left, width=64, height=100, bg="#e8e8e8")
         ram_tag.pack(side=LEFT, fill=BOTH, expand=True)
-        ram_val = Frame(ram_body_left, width=40, height=60, bg="gray80")
+        ram_val = Frame(ram_body_left, width=64, height=100, bg="#e8e8e8")
         ram_val.pack(side=RIGHT, fill=BOTH, expand=True)
         img = PhotoImage(file=r'resources\ram_picto.png')
-        aux_frame = Frame(ram_header, width=170, height=10)
+        aux_frame = Frame(ram_header, width=100, height=10)
         aux_frame.pack(fill=BOTH)
         one = Label(aux_frame, image=img, highlightthickness=0, borderwidth=0)
         one.photo = img
-        one.pack(side=LEFT)
-        Label(aux_frame, text="RAM", font=("Arial", 10, "bold")).pack(side=LEFT, padx=3)
+        one.pack(side=LEFT, padx=4)
+        Label(aux_frame, text="RAM", font=("Arial", 10, "bold"), fg="#333333").pack(side=LEFT, padx=3)
         ttk.Separator(ram_header, orient=HORIZONTAL).pack(side=BOTTOM, fill=X, expand=True)
-        Label(ram_tag, text="total:", font=("Arial", 8), bg="gray80").pack()
-        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 8), bg="gray80"))
+        Label(ram_tag, text="total:", font=("Arial", 8), bg="#e8e8e8").pack()
+        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 8), bg="#e8e8e8"))
         auxiliary_classes.global_data.ram_stats[0].pack()
-        Label(ram_tag, text="used:", font=("Arial", 8), bg="gray80").pack()
-        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 8), bg="gray80"))
+        Label(ram_tag, text="used:", font=("Arial", 8), bg="#e8e8e8").pack()
+        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 8), bg="#e8e8e8"))
         auxiliary_classes.global_data.ram_stats[1].pack()
-        Label(ram_tag, text="free:", font=("Arial", 8), bg="gray80").pack()
-        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 8), bg="gray80"))
+        Label(ram_tag, text="free:", font=("Arial", 8), bg="#e8e8e8").pack()
+        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 8), bg="#e8e8e8"))
         auxiliary_classes.global_data.ram_stats[2].pack()
         auxiliary_classes.global_data.ram_stats.append(Label(ram_body_right, text="--",
                                                              font=("Arial", 11, "bold"),
@@ -198,36 +263,36 @@ class Window(Frame):
         auxiliary_classes.global_data.ram_stats[3].pack(side=BOTTOM)
         Label(ram_body_right, text="USAGE", font=("Arial", 8, "bold"), foreground="gray").pack(side=BOTTOM)
         # Configuring Disk stats frame
-        
-        disk_header = Frame(disk_frame, width=170, height=12)
+
+        disk_header = Frame(disk_frame, width=100, height=20)
         disk_header.pack(side=TOP, fill=BOTH)
-        disk_body = Frame(disk_frame, width=170, height=60)
+        disk_body = Frame(disk_frame, width=100, height=60, bg="#e8e8e8")
         disk_body.pack(side=BOTTOM, fill=BOTH, expand=True)
-        disk_body_left = Frame(disk_body, width=85, height=60, bg="gray80")
+        disk_body_left = Frame(disk_body, width=85, height=60)
         disk_body_left.pack(side=LEFT, fill=BOTH, expand=True)
         disk_body_right = Frame(disk_body, width=85, height=60)
         disk_body_right.pack(side=RIGHT, fill=BOTH, expand=True)
-        disk_tag = Frame(disk_body_left, width=40, height=60, bg="gray80")
+        disk_tag = Frame(disk_body_left, width=40, height=60, bg="#e8e8e8")
         disk_tag.pack(side=LEFT, fill=BOTH, expand=True)
-        disk_val = Frame(disk_body_left, width=40, height=60, bg="gray80")
+        disk_val = Frame(disk_body_left, width=40, height=60, bg="#e8e8e8")
         disk_val.pack(side=RIGHT, fill=BOTH, expand=True)
 
         img = PhotoImage(file=r'resources\disk_picto.png')
-        aux_frame = Frame(disk_header, width=170, height=10)
+        aux_frame = Frame(disk_header, width=100, height=10)
         aux_frame.pack(fill=BOTH)
         one = Label(aux_frame, image=img, highlightthickness=0, borderwidth=0)
         one.photo = img
-        one.pack(side=LEFT)
-        Label(aux_frame, text="DISK", font=("Arial", 10, "bold")).pack(side=LEFT, padx=3)
+        one.pack(side=LEFT, padx=4)
+        Label(aux_frame, text="DISK", font=("Arial", 10, "bold"), fg="#333333").pack(side=LEFT, padx=3)
         ttk.Separator(disk_header, orient=HORIZONTAL,).pack(side=BOTTOM, fill=X, expand=True)
-        Label(disk_tag, text="total:", font=("Arial", 8), bg="gray80").pack()
-        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 8), bg="gray80"))
+        Label(disk_tag, text="total:", font=("Arial", 8), bg="#e8e8e8").pack()
+        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 8), bg="#e8e8e8"))
         auxiliary_classes.global_data.disk_storage[0].pack()
-        Label(disk_tag, text="used:", font=("Arial", 8), bg="gray80").pack()
-        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 8), bg="gray80"))
+        Label(disk_tag, text="used:", font=("Arial", 8), bg="#e8e8e8").pack()
+        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 8), bg="#e8e8e8"))
         auxiliary_classes.global_data.disk_storage[1].pack()
-        Label(disk_tag, text="free:", font=("Arial", 8), bg="gray80").pack()
-        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 8), bg="gray80"))
+        Label(disk_tag, text="free:", font=("Arial", 8), bg="#e8e8e8").pack()
+        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 8), bg="#e8e8e8"))
         auxiliary_classes.global_data.disk_storage[2].pack()
         auxiliary_classes.global_data.disk_storage.append(Label(disk_body_right, text="--", font=("Arial", 11, "bold"),
                                                                 foreground="green"))
@@ -240,8 +305,8 @@ class Window(Frame):
                                                                  text='Delete', 
                                                                  state="disabled", 
                                                                  command=auxiliary_classes.global_data.my_list.delete)
-        auxiliary_classes.global_data.delete_button.pack(side=RIGHT, fill=BOTH, padx=(5, 10))
-        ttk.Button(bottom_frame, text='Add', command=self.add_project).pack(side=RIGHT, fill=Y, padx=(10, 0))
+        auxiliary_classes.global_data.delete_button.pack(side=RIGHT, padx=(5, 10))
+        ttk.Button(bottom_frame, text='Add', command=self.add_project).pack(side=RIGHT, fill=X, padx=(10, 0))
         auxiliary_classes.global_data.status_button = ttk.Button(bottom_frame, 
                                                                  text='Start', 
                                                                  command=self.toggle_queue_status)
@@ -258,14 +323,14 @@ class Window(Frame):
             print(auxiliary_classes.global_data.heap_queue)
             auxiliary_classes.global_data.queue_running = True
             auxiliary_classes.global_data.status_button.config(text="Stop Queue")
-            auxiliary_classes.global_data.status_queue_label.config(text="Running", foreground="green")
+            # auxiliary_classes.global_data.status_queue_label.config(text="Running", foreground="green")
             if not self.queue_thread.isAlive():
                 self.queue_thread = threading.Thread(target=self.start_queue)
                 self.queue_thread.start()
         else:
             auxiliary_classes.global_data.queue_running = False
             auxiliary_classes.global_data.status_button.config(text="Start Queue")
-            auxiliary_classes.global_data.status_queue_label.config(text="Stopped", foreground="red")
+            # auxiliary_classes.global_data.status_queue_label.config(text="Stopped", foreground="red")
 
     def add_project(self):
         reload(config)
@@ -348,7 +413,6 @@ class Window(Frame):
     def connect_via_ssh(self):
         if auxiliary_classes.global_data.session.assert_connection():
             auxiliary_classes.global_data.progress.step(30)
-            auxiliary_classes.global_data.status_label.config(text="Connected", foreground="green")
             auxiliary_classes.global_data.session.start_threads()
             self.cpu_number = auxiliary_classes.global_data.session.get_cpu_num()
             auxiliary_classes.global_data.button2.config(state="normal")
@@ -397,7 +461,7 @@ class Window(Frame):
         r_buttons_frame.pack(fill=BOTH, pady=(8, 2))
         r_loading_frame.pack(fill=BOTH, pady=(2, 8))
         r_footer_frame.pack(fill=BOTH)
-        exit_button = Button(r_top_frame, text="X", font=('Arial', 11, 'bold'), fg="grey")
+        exit_button = Button(r_top_frame, text="X", font=('Arial', 11), fg="grey")
         exit_button.config(relief=FLAT)
         exit_button.bind('<Button-1>', quit)
         exit_button.pack(side=RIGHT)
@@ -492,10 +556,8 @@ class Window(Frame):
         self.pickle_session()
         auxiliary_classes.global_data.queue_running = False
         auxiliary_classes.global_data.status_button.config(text="Start Queue")
-        auxiliary_classes.global_data.status_queue_label.config(text="Stopped", foreground="red")
         # SESSION OFF
         auxiliary_classes.global_data.session.flag_stop = True
-        auxiliary_classes.global_data.status_label.config(text="Disconnected", foreground="red")
         auxiliary_classes.global_data.session.ssh.close()
         self.disconnected_ui()
         self.set_null()

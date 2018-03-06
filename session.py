@@ -108,12 +108,15 @@ class Session:
             if self.flag_stop:
                 break
             line = line.split()
-            if len(line) > 1:
-                if line[2].isdigit():
-                    self.cpu_usage.append(str(round(float(line[3]))) + "%")
-                    if int(line[2]) == self.cpu_number - 1:
-                        self.update_gui_values(self.cpu_usage)
-                        self.cpu_usage = []
+            try:
+                if len(line) > 1:
+                    if float(line[2]) != "nan":
+                        self.cpu_usage.append(str(round(float(line[3]))) + "%")
+                        if int(line[2]) == self.cpu_number - 1:
+                            self.update_gui_values(self.cpu_usage)
+                            self.cpu_usage = []
+            except ValueError:
+                pass
         self.ssh.close()
         self.is_connected = False
 
