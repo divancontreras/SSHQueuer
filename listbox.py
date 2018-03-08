@@ -5,7 +5,7 @@ from tkinter import *
 import heapq
 # Local Imports
 import auxiliary_classes
-
+from PIL import Image, ImageTk
 
 class DDList:
     """ A Tkinter listbox with drag'n'drop reordering of entries. """
@@ -37,7 +37,8 @@ class DDList:
         # set frame resize priorities
         f.rowconfigure(0, weight=1)
         f.columnconfigure(0, weight=1)
-
+        style = ttk.Style(master)
+        style.configure('Treeview', rowheight=38)
         self._load_data()
         self.tree.bind('<Button-3>', self.on_right_click)
         self.tree.bind("<ButtonPress-1>", self.b_down)
@@ -72,16 +73,6 @@ class DDList:
         item = self.tree.identify('item', event.x, event.y)
         name = self.tree.item(item)['values'][0]
         auxiliary_classes.global_data.session.kill_process(name)
-
-    # def do_pause_process(self, event):
-    #     item = self.tree.identify('item', event.x, event.y)
-    #     name = self.tree.item(item)['values'][0]
-    #     global_data.session.pause_process(name)
-    #
-    # def do_resume_process(self, event):
-    #     item = self.tree.identify('item', event.x, event.y)
-    #     name = self.tree.item(item)['values'][0]
-    #     global_data.session.resume_process(name)
 
     def do_stop_process(self, event):
         item = self.tree.identify('item', event.x, event.y)
