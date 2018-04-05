@@ -3,29 +3,39 @@ import base64
 import heapq
 import threading
 from datetime import datetime
-from importlib import reload
 from tkinter import *
 from tkinter import ttk, filedialog, Frame, Label, messagebox, font
 import pickle
 # Local Imports
-import auxiliary_classes
+import os
 import listbox
 import session
-import config
-from auxiliary_classes import Project
+from auxiliary_classes import Project, SessionSaver, SessionData, SessionConfig
 
 
 class Window(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
+        self.heap_queue = []
+        self.name_pid = {}
+        self.name_mpid = {}
+        self.projects_list = []
+        self.unpickle_creds()
+        self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.master = master
         self.master.withdraw()
         self.master.iconbitmap(r'resources/app_pictogram_orC_icon.ico')
-        auxiliary_classes.global_data.session = None
+        self.session = None
         self.enter_credentials_widget()
         self.init_window()
+        self.last_session_exist = False
         self.cpu_number = 0
         self.queue_thread = threading.Thread()
+        self.task_done = False
+        self.task_stopped = False
+        self.task_canceled = False
+        self.task_denied = False
+        self.queue_running = False
 
     def start_move(self, event):
         self.top.x = event.x
@@ -42,7 +52,8 @@ class Window(Frame):
         y = self.top.winfo_y() + delta_y
         self.top.geometry("+%s+%s" % (x, y))
 
-    def new_connection(self):
+    def new_connection(self, e):
+        self.toggle_underline(e)
         self.disconnect()
         self.master.withdraw()
         self.enter_credentials_widget()
@@ -88,9 +99,9 @@ class Window(Frame):
         icon_frame = Label(header_frame, height=62, width=121, image=img, highlightthickness=0, borderwidth=0)
         icon_frame.photo = img
         icon_frame.pack(side=LEFT, fill=BOTH)
-        disconnect_button = Button(header_frame, text="Disconnect", fg="#42b4e6", font=("Arial", 11)
-                                   ,command=self.new_connection)
+        disconnect_button = Button(header_frame, text="Disconnect", fg="#42b4e6", font=("Arial", 11))
         disconnect_button.config(relief=FLAT, padx=3)
+        disconnect_button.bind("<Button-1>", self.new_connection)
         disconnect_button.bind("<Enter>", self.toggle_underline)
         disconnect_button.bind("<Leave>", self.toggle_underline)
         disconnect_button.pack(side=RIGHT)
@@ -114,44 +125,47 @@ class Window(Frame):
         # queue_frame will have 3 frames, one for header text,
         # one for processing of tasks, one for listbox and one for two buttons
         header_listbox = Frame(queue_frame, width=664, height=100)
-        aux_frame = Frame(header_listbox, height=50, pady=5)
-        aux_frame.pack(fill=BOTH, expand=True)
+        aux_frame = Frame(header_listbox, height=50)
+        aux_frame.pack(fill=BOTH)
         img = PhotoImage(file=r'resources\simulation_queue.png')
         icon_frame = Label(aux_frame, height=19, width=186, image=img, highlightthickness=0, borderwidth=0)
         icon_frame.photo = img
         icon_frame.pack(anchor="w", pady=5)
         ttk.Separator(aux_frame, orient=HORIZONTAL).pack(fill=X, expand=True)
-        Label(header_listbox, text="Processing...", font=("Arial", 10, "bold"), fg="#333333").pack(anchor="w")
-        progress_frame = Frame(header_listbox, height=10, pady=5)
-        progress_frame.pack(fill=BOTH)
+        progress_frame = Frame(header_listbox, height=10)
+        progress_frame.pack(fill=BOTH, pady=5)
         s = ttk.Style()
+        self.cute_tag = Label(progress_frame, text="On hold", font=("Arial", 10, "bold"),
+                                           fg="#3dcd58")
+        self.cute_tag.pack(side=LEFT, anchor="w")
         s.configure("red.Horizontal.TProgressbar", foreground='green', background='#3dcd58', theme="alt")
-        auxiliary_classes.global_data.progress_queue = ttk.Progressbar(progress_frame, style="red.Horizontal.TProgressbar", orient="horizontal", length=600, mode="determinate",
-                        maximum=4, value=1)
-        # auxiliary_classes.global_data.progress_queue = ttk.Progressbar(progress_frame, style='Kim.TButton', length=100,
-        #                                                                value=0)
-        auxiliary_classes.global_data.progress_queue.pack(fill=X)
+        self.progress_project = ttk.Progressbar(progress_frame,
+                                                                         style="red.Horizontal.TProgressbar",
+                                                                         orient="horizontal",
+                                                                         value=1,
+                                                                         length=100,
+                                                                         mode="determinate", maximum=100)
 
         listbox_frame = Frame(queue_frame, width=664, height=208)
         bottom_queue = Frame(queue_frame, width=830, height=50, pady=5)
         header_listbox.pack(fill=BOTH)
         listbox_frame.pack(fill=BOTH, expand=True)
         bottom_queue.pack(fill=BOTH)
-        auxiliary_classes.global_data.my_list = listbox.DDList(listbox_frame, height=5)
+        self.treeview = listbox.DDList(listbox_frame, self, height=5)
 
         # Configuring Connection frame
         img = PhotoImage(file=r'resources\User_picto.png')
         icon_frame = Label(connection_frame, image=img, highlightthickness=0, borderwidth=0)
         icon_frame.photo = img
         icon_frame.pack(side=LEFT, anchor="e")
-        auxiliary_classes.global_data.iplabel = Label(connection_frame, text=config.host, fg="#3dcd58",
-                                                      font=("Arial", 10,"bold"))
-        auxiliary_classes.global_data.username = Label(connection_frame, text=config.user, fg="#3dcd58",
-                                                      font=("Arial", 12, "bold"))
-        auxiliary_classes.global_data.username.pack(side=TOP, anchor="w")
-        auxiliary_classes.global_data.iplabel.pack(side=BOTTOM, anchor="w")
+        self.iplabel = Label(connection_frame, text=self.active_session.host, fg="#3dcd58",
+                             font=("Arial", 10,"bold"))
+        self.username = Label(connection_frame, text=self.active_session.user, fg="#3dcd58",
+                              font=("Arial", 12, "bold"))
+        self.username.pack(side=TOP, anchor="w")
+        self.iplabel.pack(side=BOTTOM, anchor="w")
         # Label(connection_frame, text="Queue Status:").grid(row=2, column=0, sticky=W)
-        # auxiliary_classes.global_data.status_queue_label = Label(connection_frame, text="Stopped", foreground="red")
+        # self.status_queue_label = Label(connection_frame, text="Stopped", foreground="red")
 
         # Config Status Frame
         status_header = Frame(status_frame, width=256, height=32)
@@ -159,15 +173,29 @@ class Window(Frame):
         status_body = Frame(status_frame, width=256, height=100)
         status_body.pack(side=BOTTOM, fill=BOTH)
         status_tag = Frame(status_body, width=32, height=100, bg="#e8e8e8")
-        status_tag.pack(side=LEFT, fill=BOTH)
+        status_tag.pack(side=LEFT)
         status_val = Frame(status_body, width=32, height=100, bg="#e8e8e8")
-        status_val.pack(side=LEFT, fill=BOTH)
-        right_tag = Frame(status_body, width=32, height=100)
-        right_tag.pack(side=LEFT, fill=BOTH, expand=True)
+        status_val.pack(side=LEFT)
         right_val = Frame(status_body, width=32, height=100)
         right_val.pack(side=LEFT, fill=BOTH, expand=True)
-        Label(right_tag, text="Running Info").pack()
-        Label(right_tag, text="Project Name").pack()
+        Label(right_val, text="Running Info", font=("Arial", 11, "bold")).pack(side=TOP)
+        left_aux = Frame(right_val, width=16)
+        left_aux.pack(side=LEFT, fill=BOTH, expand=True)
+        right_aux = Frame(right_val, width=16)
+        right_aux.pack(side=LEFT, fill=BOTH, expand=True)
+        Label(left_aux, text="Name:", font=("Arial", 10)).pack()
+        Label(left_aux, text="Percentage:", font=("Arial", 10)).pack()
+        Label(left_aux, text="Iteration:", font=("Arial", 10)).pack()
+        Label(left_aux, text="ETC:", font=("Arial", 10)).pack()
+        self.project_name = Label(right_aux, text="--", font=("Arial", 10))
+        self.project_percentage = Label(right_aux, text="--", font=("Arial", 10))
+        self.project_iteration = Label(right_aux, text="--", font=("Arial", 10))
+        self.project_etc = Label(right_aux, text="--", font=("Arial", 10))
+
+        self.project_name.pack()
+        self.project_percentage.pack()
+        self.project_iteration.pack()
+        self.project_etc.pack()
         img = PhotoImage(file=r'resources\Status_header.png')
         one = Label(status_header, image=img, highlightthickness=0, borderwidth=0)
         one.photo = img
@@ -177,27 +205,27 @@ class Window(Frame):
         one = Label(status_tag, image=img, highlightthickness=0, borderwidth=0, bg="#e8e8e8")
         one.photo = img
         one.pack(padx=2)
-        completed_val = Label(status_val, text="0", font=("Arial", 12), bg="#e8e8e8")
-        completed_val.pack(side=TOP, anchor="w", pady=3, padx=3)
+        self.completed_val = Label(status_val, text="0", font=("Arial", 12), bg="#e8e8e8")
+        self.completed_val.pack(side=TOP, anchor="w", pady=3, padx=3)
         img = PhotoImage(file=r'resources\error_picto.png')
         one = Label(status_tag, image=img, highlightthickness=0, borderwidth=0, bg="#e8e8e8")
         one.photo = img
         one.pack(padx=2)
-        error_val = Label(status_val, text="0", font=("Arial", 12), bg="#e8e8e8")
-        error_val.pack(side=TOP, anchor="w", pady=3, padx=3)
+        self.error_val = Label(status_val, text="0", font=("Arial", 12), bg="#e8e8e8")
+        self.error_val.pack(side=TOP, anchor="w", pady=3, padx=3)
         img = PhotoImage(file=r'resources\information_picto.png')
         one = Label(status_tag, image=img, highlightthickness=0, borderwidth=0, bg="#e8e8e8")
         one.photo = img
         one.pack(padx=2)
-        info_val = Label(status_val, text="0", font=("Arial", 12), bg="#e8e8e8")
-        info_val.pack(side=TOP, anchor="w", pady=3, padx=3)
+        self.info_val = Label(status_val, text="0", font=("Arial", 12), bg="#e8e8e8")
+        self.info_val.pack(side=TOP, anchor="w", pady=3, padx=3)
         img = PhotoImage(file=r'resources\warning_picto.png')
         one = Label(status_tag, image=img, highlightthickness=0, borderwidth=0, bg="#e8e8e8")
         one.photo = img
         one.pack(padx=2)
-        warning_val = Label(status_val, text="0", font=("Arial", 12), bg="#e8e8e8")
-        warning_val.pack(side=TOP, anchor="w", pady=3, padx=3)
-        auxiliary_classes.global_data.status_avg = Label(status_body, text="--", font=("Arial", 11, "bold"))
+        self.warning_val = Label(status_val, text="0", font=("Arial", 12), bg="#e8e8e8")
+        self.warning_val.pack(side=TOP, anchor="w", pady=3, padx=3)
+        self.status_avg = Label(status_body, text="--", font=("Arial", 11, "bold"))
 
         # Configuring Cpu stats frame
 
@@ -219,24 +247,24 @@ class Window(Frame):
         one.pack(side=TOP, anchor="w")
         ttk.Separator(cpu_header, orient=HORIZONTAL).pack(side=BOTTOM, fill=X, expand=True)
         Label(cpu_tag, text="CPU 0:", font=("Arial", 11), bg="#e8e8e8", fg="#333333").pack()
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 10), bg="#e8e8e8",
-                                                            fg="#333333"))
-        auxiliary_classes.global_data.cpu_list[0].pack(fill=BOTH, expand=True, padx=4)
+        self.cpu_stats_0 = Label(cpu_val, text="--", font=("Arial", 10), bg="#e8e8e8",
+                                                            fg="#333333")
+        self.cpu_stats_0.pack(fill=BOTH, expand=True, padx=4)
         Label(cpu_tag, text="CPU 1:", font=("Arial", 11), bg="#e8e8e8", fg="#333333").pack()
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 10), bg="#e8e8e8",
-                                                            fg="#333333"))
-        auxiliary_classes.global_data.cpu_list[1].pack(fill=BOTH, padx=4, expand=True)
+        self.cpu_stats_1 = Label(cpu_val, text="--", font=("Arial", 10), bg="#e8e8e8",
+                                                            fg="#333333")
+        self.cpu_stats_1.pack(fill=BOTH, padx=4, expand=True)
         Label(cpu_tag, text="CPU 2:", font=("Arial", 11), bg="#e8e8e8", fg="#333333").pack()
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 10), bg="#e8e8e8",
-                                                            fg="#333333"))
-        auxiliary_classes.global_data.cpu_list[2].pack(fill=BOTH, padx=4, expand=True)
+        self.cpu_stats_2 = Label(cpu_val, text="--", font=("Arial", 10), bg="#e8e8e8",
+                                                            fg="#333333")
+        self.cpu_stats_2.pack(fill=BOTH, padx=4, expand=True)
         Label(cpu_tag, text="CPU 3:", font=("Arial", 11), bg="#e8e8e8", fg="#333333").pack()
-        auxiliary_classes.global_data.cpu_list.append(Label(cpu_val, text="--", font=("Arial", 10), bg="#e8e8e8",
-                                                            fg="#333333"))
-        auxiliary_classes.global_data.cpu_list[3].pack(fill=BOTH, padx=4, expand=True)
-        auxiliary_classes.global_data.cpu_avg = Label(cpu_body_right, text="--",
+        self.cpu_stats_3 = Label(cpu_val, text="--", font=("Arial", 10), bg="#e8e8e8",
+                                                            fg="#333333")
+        self.cpu_stats_3.pack(fill=BOTH, padx=4, expand=True)
+        self.cpu_avg = Label(cpu_body_right, text="--",
                                                       font=("Arial", 16, "bold"))
-        auxiliary_classes.global_data.cpu_avg.pack(side=BOTTOM)
+        self.cpu_avg.pack(side=BOTTOM)
         Label(cpu_body_right, text="USAGE", font=("Arial", 8, "bold"), foreground="gray").pack(side=BOTTOM , anchor="w",
                                                                                                pady=(5, 0))
 
@@ -259,21 +287,21 @@ class Window(Frame):
         one.pack(side=TOP, anchor="w")
         ttk.Separator(ram_header, orient=HORIZONTAL).pack(side=BOTTOM, fill=X, expand=True)
         Label(ram_tag, text="total:", font=("Arial", 11), bg="#e8e8e8", fg="#333333").pack()
-        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 10), bg="#e8e8e8",
-                                                             fg="#333333"))
-        auxiliary_classes.global_data.ram_stats[0].pack()
+        self.ram_stats_0 = Label(ram_val, text="--", font=("Arial", 10), bg="#e8e8e8",
+                                                             fg="#333333")
+        self.ram_stats_0.pack()
         Label(ram_tag, text="used:", font=("Arial", 11), bg="#e8e8e8", fg="#333333").pack()
-        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 10), bg="#e8e8e8",
-                                                             fg="#333333"))
-        auxiliary_classes.global_data.ram_stats[1].pack()
+        self.ram_stats_1 = Label(ram_val, text="--", font=("Arial", 10), bg="#e8e8e8",
+                                                             fg="#333333")
+        self.ram_stats_1.pack()
         Label(ram_tag, text="free:", font=("Arial", 11), bg="#e8e8e8", fg="#333333").pack()
-        auxiliary_classes.global_data.ram_stats.append(Label(ram_val, text="--", font=("Arial", 10), bg="#e8e8e8",
-                                                             fg="#333333"))
-        auxiliary_classes.global_data.ram_stats[2].pack()
-        auxiliary_classes.global_data.ram_stats.append(Label(ram_body_right, text="--",
-                                                             font=("Arial", 16, "bold"),
-                                                             foreground="green"))
-        auxiliary_classes.global_data.ram_stats[3].pack(side=BOTTOM)
+        self.ram_stats_2 = Label(ram_val, text="--", font=("Arial", 10), bg="#e8e8e8",
+                                                             fg="#333333")
+        self.ram_stats_2.pack()
+        self.ram_stats_3 = Label(ram_body_right, text="--",
+                                                 font=("Arial", 16, "bold"),
+                                                 foreground="green")
+        self.ram_stats_3.pack(side=BOTTOM)
         Label(ram_body_right, text="USAGE", font=("Arial", 8, "bold"), foreground="gray").pack(side=BOTTOM,
                                                                                                anchor="w")
         # Configuring Disk stats frame
@@ -297,35 +325,35 @@ class Window(Frame):
         one.pack(side=TOP, anchor="w")
         ttk.Separator(disk_header, orient=HORIZONTAL,).pack(side=BOTTOM, fill=X, expand=True)
         Label(disk_tag, text="total:", font=("Arial", 11), bg="#e8e8e8", fg="#333333").pack()
-        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 10), bg="#e8e8e8",
-                                                                fg="#333333"))
-        auxiliary_classes.global_data.disk_storage[0].pack()
+        self.disk_storage_0 = Label(disk_val, text="--", font=("Arial", 10), bg="#e8e8e8",
+                                                                fg="#333333")
+        self.disk_storage_0.pack()
         Label(disk_tag, text="used:", font=("Arial", 11), bg="#e8e8e8", fg="#333333").pack()
-        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 10), bg="#e8e8e8",
-                                                                fg="#333333"))
-        auxiliary_classes.global_data.disk_storage[1].pack()
+        self.disk_storage_1 = Label(disk_val, text="--", font=("Arial", 10), bg="#e8e8e8",
+                                                                fg="#333333")
+        self.disk_storage_1.pack()
         Label(disk_tag, text="free:", font=("Arial", 11), bg="#e8e8e8", fg="#333333").pack()
-        auxiliary_classes.global_data.disk_storage.append(Label(disk_val, text="--", font=("Arial", 10), bg="#e8e8e8",
-                                                                fg="#333333"))
-        auxiliary_classes.global_data.disk_storage[2].pack()
-        auxiliary_classes.global_data.disk_storage.append(Label(disk_body_right, text="--", font=("Arial", 16, "bold"),
-                                                                foreground="green"))
-        auxiliary_classes.global_data.disk_storage[3].pack(side=BOTTOM)
+        self.disk_storage_2 = Label(disk_val, text="--", font=("Arial", 10), bg="#e8e8e8",
+                                                                fg="#333333")
+        self.disk_storage_2.pack()
+        self.disk_storage_3 = Label(disk_body_right, text="--", font=("Arial", 16, "bold"),
+                                                                foreground="green")
+        self.disk_storage_3.pack(side=BOTTOM)
         Label(disk_body_right, text="USAGE", font=("Arial", 8, "bold"), foreground="gray").pack(side=BOTTOM,
                                                                                                 anchor="w")
 
         # Defining buttons for queue_frame
         
-        auxiliary_classes.global_data.delete_button = ttk.Button(bottom_queue,
+        self.delete_button = ttk.Button(bottom_queue,
                                                                  text='Delete', 
                                                                  state="disabled", 
-                                                                 command=auxiliary_classes.global_data.my_list.delete)
-        auxiliary_classes.global_data.delete_button.pack(side=RIGHT, padx=(5, 10))
+                                                                 command=self.treeview.delete)
+        self.delete_button.pack(side=RIGHT, padx=(5, 10))
         ttk.Button(bottom_queue, text='Add', command=self.add_project).pack(side=RIGHT, fill=X, padx=(10, 0))
-        auxiliary_classes.global_data.status_button = ttk.Button(bottom_queue,
-                                                                 text='Start', 
+        self.status_button = ttk.Button(bottom_queue,
+                                                                 text='Start',
                                                                  command=self.toggle_queue_status)
-        auxiliary_classes.global_data.status_button.pack(side=LEFT, padx=(10, 0))
+        self.status_button.pack(side=LEFT, padx=(10, 0))
 
         # Config of frames
         stats_frame.grid_propagate(False)
@@ -334,23 +362,25 @@ class Window(Frame):
         disk_frame.grid_propagate(False)
 
     def toggle_queue_status(self):
-        if not auxiliary_classes.global_data.queue_running:
-            print(auxiliary_classes.global_data.heap_queue)
-            auxiliary_classes.global_data.queue_running = True
-            auxiliary_classes.global_data.status_button.config(text="Stop")
-            # auxiliary_classes.global_data.status_queue_label.config(text="Running", foreground="green")
+        if not self.queue_running:
+            print(self.heap_queue)
+            self.queue_running = True
+            self.status_button.config(text="Stop")
             if not self.queue_thread.isAlive():
                 self.queue_thread = threading.Thread(target=self.start_queue)
                 self.queue_thread.start()
         else:
-            auxiliary_classes.global_data.queue_running = False
-            auxiliary_classes.global_data.status_button.config(text="Start")
-            # auxiliary_classes.global_data.status_queue_label.config(text="Stopped", foreground="red")
+            self.project_iteration.config(
+                text="--")
+            self.project_percentage.config(
+                text="--")
+            self.project_etc.config(text="--")
+            self.queue_running = False
+            self.status_button.config(text="Start")
 
     def add_project(self):
-        reload(config)
-        target_path = f"\\\\{config.host}\\Projects"
-        file_path = filedialog.askopenfilename(parent=auxiliary_classes.root, 
+        target_path = f"\\\\{self.active_session.host}\\Projects"
+        file_path = filedialog.askopenfilename(parent=self.master,
                                                filetypes=(("Script Files", "*.SCRIPT"), ("All Files", "*.*")), 
                                                initialdir=target_path, 
                                                title='Please select a .SCRIPT project')
@@ -358,44 +388,45 @@ class Window(Frame):
             self.add_to_queue(file_path)
 
     def start_queue(self):
-        while auxiliary_classes.global_data.queue_running:
-            print(auxiliary_classes.global_data.heap_queue)
-            if len(auxiliary_classes.global_data.heap_queue) > 0:
-                task = auxiliary_classes.global_data.heap_queue[0]
+        while self.queue_running:
+            print(self.heap_queue)
+            if len(self.heap_queue) > 0:
+                task = self.heap_queue[0]
             else:
                 messagebox.showwarning("Queue finished", "The queue has finished!")
                 self.toggle_queue_status()
                 return
-            for proj in auxiliary_classes.global_data.projects_queue:
+            for proj in self.projects_list:
                 if proj.name == task[1]:
-                    if proj.status == "Running":
+                    if proj.is_running():
                         break
                     else:
-                        proj.status = "Running"
-                        auxiliary_classes.global_data.my_list.update()
-                        auxiliary_classes.global_data.task_done = False
-                        auxiliary_classes.global_data.task_stopped = False
-                        auxiliary_classes.global_data.task_canceled = False
-                        auxiliary_classes.global_data.task_denied = False
-                        threading.Thread(target=auxiliary_classes.global_data.session.start_project,
+                        proj.set_running()
+                        self.treeview.update()
+                        self.reset_flags()
+                        threading.Thread(target=self.session.start_project,
                                          args=(proj.bash_path, proj.name)).start()
                         break
             while True:
-                if auxiliary_classes.global_data.task_done:
-                    if auxiliary_classes.global_data.task_stopped:
-                        proj.status = "Stopped Gently"
-                    elif auxiliary_classes.global_data.task_canceled:
-                        proj.status = "Stop Forced"
-                    elif auxiliary_classes.global_data.task_denied:
-                        proj.status = "Permission Denied"
+                if self.task_done:
+                    self.progress_project.pack_forget()
+                    self.cute_tag.configure(text="On hold")
+                    self.project_name.config(text="--")
+                    if self.task_stopped:
+                        proj.set_saved()
+                        self.session.remove_fdstop(proj.bash_path)
+                    elif self.task_canceled:
+                        proj.set_canceled()
+                    elif self.task_denied:
+                        proj.set_denied()
                     else:
-                        proj.status = "Completed"
-                    proj.turn = None
-                    del auxiliary_classes.global_data.name_pid[proj.name]
-                    heapq.heappop(auxiliary_classes.global_data.heap_queue)
-                    auxiliary_classes.global_data.my_list.adjust_queue_turn()
+                        proj.set_completed()
+                    proj.turn = 2000
+                    del self.name_pid[proj.name]
+                    heapq.heappop(self.heap_queue)
+                    self.treeview.adjust_queue_turn()
                     try:
-                        auxiliary_classes.global_data.my_list.update()
+                        self.treeview.update()
                     except ReferenceError:
                         return
                     break
@@ -407,42 +438,54 @@ class Window(Frame):
 
         with open(filepath, 'r') as doc:
             data = doc.read()
-            cores = data[data.find("-t") + 2]
+            try:
+                cores = int(data[data.find("-t") + 2])
+            except ValueError:
+                cores = "N/A"
             tofilename = filepath.split("/")[-1]
             filename = tofilename[:tofilename.find(".")]
             auxfilename = filename
-
         while self.is_repeated(filename):
             icont += 1
             filename = f"{auxfilename} ({icont})"
 
-        new = Project(filename, filepath, cores, "Queued", self.count_queued_project(),
-                      datetime.now().strftime("%Y-%m-%d / %H:%M:%S"))
+        new = Project(filename,"resources\information_picto.png", filepath, cores, "Queued",
+                           self.count_queued_project(), datetime.now().strftime("%Y-%m-%d / %H:%M:%S"))
         new.bash_path = self.bashify(filepath)
         print(new.bash_path)
-        heapq.heappush(auxiliary_classes.global_data.heap_queue, [int(self.count_queued_project()), filename])
-        auxiliary_classes.global_data.projects_queue.append(new)
-        auxiliary_classes.global_data.my_list.insert(new.get_list())
-        auxiliary_classes.global_data.my_list.update()
+        heapq.heappush(self.heap_queue, [int(self.count_queued_project()), filename])
+        self.projects_list.append(new)
+        self.treeview.insert(new)
+        if not len(self.heap_queue) > 0:
+            self.status_button.config(state="disabled")
+        else:
+            self.status_button.config(state="normal")
+        self.count_projects()
 
     def connect_via_ssh(self):
-        if auxiliary_classes.global_data.session.assert_connection():
-            auxiliary_classes.global_data.progress.step(30)
-            auxiliary_classes.global_data.session.start_threads()
-            self.cpu_number = auxiliary_classes.global_data.session.get_cpu_num()
-            auxiliary_classes.global_data.button2.config(state="normal")
-            auxiliary_classes.global_data.button1.config(state="normal")
+        if self.session.assert_connection():
+            self.progress.step(30)
+            self.session.start_threads()
+            self.cpu_number = self.session.get_cpu_num()
+            self.button2.config(state="normal")
+            if self.last_session_exist:
+                self.button1.config(state="normal")
+            else:
+                self.button1.config(state="disabled")
             self.de_pickle_session()
             self.top.destroy()
             self.master.deiconify()
 
         else:
             self.disconnect()
-            auxiliary_classes.global_data.progress.place_forget()
-            auxiliary_classes.global_data.msg_refused.place(relx=0.5, rely=0.5, anchor=CENTER)
-            auxiliary_classes.global_data.button2.config(state="normal")
-            auxiliary_classes.global_data.button1.config(state="normal")
-            auxiliary_classes.global_data.progress.config(value=0)
+            self.progress.place_forget()
+            self.msg_refused.place(relx=0.5, rely=0.5, anchor=CENTER)
+            self.button2.config(state="normal")
+            if self.last_session_exist:
+                self.button1.config(state="normal")
+            else:
+                self.button1.config(state="disabled")
+            self.progress.config(value=0)
             return
 
     def enter_credentials_widget(self):
@@ -453,9 +496,9 @@ class Window(Frame):
         self.top.bind("<ButtonPress-1>", self.start_move)
         self.top.bind('<ButtonRelease-1>', self.stop_move)
         self.top.bind("<B1-Motion>", self.on_motion)
-        self.top.bind("<Return>", lambda event: self.update_credentials(host.get(),
-                                                                        user.get(), 
-                                                                        password.get()))
+        self.top.bind("<Return>", lambda event: self.set_credentials(False, host.get(),
+                                                                     user.get(),
+                                                                     password.get()))
         # Window size
         self.top.geometry("676x480")
 
@@ -478,7 +521,7 @@ class Window(Frame):
         r_footer_frame.pack(fill=BOTH)
         exit_button = Button(r_top_frame, text="X", font=('Arial', 11), fg="grey")
         exit_button.config(relief=FLAT)
-        exit_button.bind('<Button-1>', quit)
+        exit_button.bind('<Button-1>', self.exit_window)
         exit_button.pack(side=RIGHT)
         img = PhotoImage(file=r'resources\Cover_Lines.png')
         one = Label(left_frame, image=img, highlightthickness=0, borderwidth=0)
@@ -488,24 +531,21 @@ class Window(Frame):
         two = Label(r_footer_frame, image=img)
         two.pack(side=RIGHT, padx=(0, 25))
         two.photo = img
-        auxiliary_classes.global_data.progress = ttk.Progressbar(r_loading_frame, length=100, value=0)
-        auxiliary_classes.global_data.msg_refused = Label(r_loading_frame,
-                                                          text="Connection failed, check credentials and try again.",
-                                                          fg="red",
-                                                          font=('Arial', 9, 'italic'))
-        auxiliary_classes.global_data.msg_entry = Label(r_loading_frame, 
-                                                        text="Please, fill all entry fields.", 
-                                                        fg="red", 
-                                                        font=('Arial', 9, 'italic'))
+        self.progress = ttk.Progressbar(r_loading_frame, length=100, value=0)
+        self.msg_refused = Label(r_loading_frame,
+                                  text="Connection failed, check credentials and try again.",
+                                  fg="red",
+                                  font=('Arial', 9, 'italic'))
+        self.msg_entry = Label(r_loading_frame,
+                                text="Please, fill all entry fields.",
+                                fg="red",
+                                font=('Arial', 9, 'italic'))
         host = StringVar(value="Host")
         user = StringVar(value="User")
         password = StringVar(value="Password")
-        auxiliary_classes.global_data.checkbox = StringVar()
+        self.checkbox = StringVar()
         self.top.title("Connect to machine")
         self.top.resizable(width=False, height=False)
-        # host.set(config.host)
-        # user.set(config.user)
-        # password.set(base64.b64decode(config.password).decode())
 
         e1 = ttk.Entry(r_entry_frame, textvariable=host, font=('Arial', 14, 'italic'), foreground="grey")
         e2 = ttk.Entry(r_entry_frame, textvariable=user, font=('Arial', 14, 'italic'), foreground="grey")
@@ -515,124 +555,228 @@ class Window(Frame):
         e2.pack(pady=8)
         e3.pack(pady=(8, 0))
         check_button = ttk.Checkbutton(
-            r_buttons_frame, text="Remember me", variable=auxiliary_classes.global_data.checkbox, onvalue=True)
+            r_buttons_frame, text="Remember me", variable=self.checkbox, onvalue=True)
         check_button.pack(side=TOP, anchor=W, padx=(35, 0), pady=(0, 4))
         imag_last = PhotoImage(file=r'resources\LastSession_button.png')
-        auxiliary_classes.global_data.button1 = Button(r_buttons_frame, command=quit)
-        auxiliary_classes.global_data.button1.config(image=imag_last, 
-                                                     bd=0, width="240", 
-                                                     height="32", 
-                                                     command=self.update_credentials)
-        auxiliary_classes.global_data.button1.photo = imag_last
+        self.button1 = Button(r_buttons_frame)
+        self.button1.config(image=imag_last,
+                            bd=0, width="240",
+                            height="32",
+                            command=lambda: self.get_last_session())
+        if self.last_session_exist:
+            self.button1.config(state="normal")
+        else:
+            self.button1.config(state="disabled")
+        self.button1.photo = imag_last
         login_img = PhotoImage(file=r'resources\Login_button.png')
-        auxiliary_classes.global_data.button2 = Button(r_buttons_frame, 
-                                                       text="Connect", 
-                                                       command=lambda: self.update_credentials(host.get(), 
-                                                                                               user.get(), 
-                                                                                               password.get()))
-        auxiliary_classes.global_data.button2.config(image=login_img, bd=0, width="240", height="32")
-        auxiliary_classes.global_data.button2.photo = login_img
-        auxiliary_classes.global_data.button2.pack(pady=5)
-        auxiliary_classes.global_data.button1.pack(pady=8)
+        self.button2 = Button(r_buttons_frame,
+                              text="Connect",
+                              command=lambda: self.set_credentials(False, host.get(),
+                                                                   user.get(),
+                                                                   password.get()))
+        self.button2.config(image=login_img, bd=0, width="240", height="32")
+        self.button2.photo = login_img
+        self.button2.pack(pady=5)
+        self.button1.pack(pady=8)
+        self.top.lift()
+        self.top.attributes('-topmost', True)
 
-    def update_credentials(self, host=config.host,
-                           user=config.user, 
-                           password=base64.b64decode(config.password).decode()):
+    def exit_window(self,e):
+        sys.exit()
+
+    def get_last_session(self):
+        self.unpickle_creds()
+        self.set_credentials(True, self.active_session.host,
+                             self.active_session.user,
+                             base64.b64decode(self.active_session.password).decode())
+
+    def set_credentials(self, last_session, host, user, password):
         # First update the credentials of the config file.
-        auxiliary_classes.global_data.msg_refused.place_forget()
-        auxiliary_classes.global_data.msg_entry.place_forget()
-        auxiliary_classes.global_data.button2.config(state="disabled")
-        auxiliary_classes.global_data.button1.config(state="disabled")
+        self.msg_refused.place_forget()
+        self.msg_entry.place_forget()
+        self.button2.config(state="disabled")
+        self.button1.config(state="disabled")
         if host == "Host" or host == "":
-            auxiliary_classes.global_data.msg_entry.place(relx=0.5, rely=0.5, anchor=CENTER)
-            auxiliary_classes.global_data.button2.config(state="normal")
-            auxiliary_classes.global_data.button1.config(state="normal")
+            self.msg_entry.place(relx=0.5, rely=0.5, anchor=CENTER)
+            self.button2.config(state="normal")
+            if self.last_session_exist:
+                self.button1.config(state="normal")
+            else:
+                self.button1.config(state="disabled")
             return
-        if auxiliary_classes.global_data.checkbox:
-            if not password == base64.b64decode(config.password).decode():
+        if not last_session:
+            if not password == base64.b64decode(self.active_session.password).decode():
                 encoded_password = base64.b64encode(password.encode())
             else:
-                encoded_password = config.password
-            with open("config.py", "w") as sf:
-                sf.write(f"host = \"{host}\" \nuser = \"{user}\" \npassword = {encoded_password}")
-            reload(config)
-        auxiliary_classes.global_data.progress.place(relx=0.5, rely=0.5, anchor=CENTER)
-        auxiliary_classes.global_data.session = session.Session(config.host, 
-                                                                config.user, 
-                                                                base64.b64decode(config.password).decode())
-        auxiliary_classes.global_data.host = config.host
-        auxiliary_classes.global_data.progress.step(30)
+                encoded_password = self.active_session.password
+            try:
+                with open("object.pickle", "rb") as r:
+                    stored_data = pickle.load(r)
+                    r.close()
+            except EOFError:
+                    stored_data = None
+            if self.checkbox.get() == '1':
+                self.last_session_exist = True
+                if stored_data is None:
+                    stored_data = SessionSaver([host, user, encoded_password], [], True)
+                else:
+                    stored_data.last_session = [host, user, encoded_password]
+                    stored_data.last_session_exist = True
+            else:
+                if stored_data is None:
+                    stored_data = SessionSaver([], [], False)
+            with open("object.pickle", "wb") as w:
+                pickle.dump(stored_data, w)
+                w.close()
+            self.active_session.host = host
+            self.active_session.password = encoded_password
+            self.active_session.user = user
+        else:
+            self.active_session = self.last_session
+        self.progress.place(relx=0.5, rely=0.5, anchor=CENTER)
+        self.session = session.Session(self, self.active_session.host,
+                                       self.active_session.user,
+                                       base64.b64decode(self.active_session.password).decode())
+        self.progress.step(30)
         t = threading.Thread(target=self.connect_via_ssh)
         t.start()
-        auxiliary_classes.global_data.iplabel.config(text=host)
+        self.iplabel.config(text=self.active_session.host)
+
 
     def disconnect(self):
         # STOP QUEUE
         self.pickle_session()
-        auxiliary_classes.global_data.queue_running = False
-        auxiliary_classes.global_data.status_button.config(text="Start")
+        self.queue_running = False
+        self.status_button.config(text="Start")
         # SESSION OFF
-        auxiliary_classes.global_data.session.flag_stop = True
-        auxiliary_classes.global_data.session.ssh.close()
+        self.session.flag_stop = True
+        self.session.ssh.close()
         self.disconnected_ui()
-        self.set_null()
 
-    @staticmethod
-    def set_null():
-        for label in auxiliary_classes.global_data.disk_storage:
-            label.config(text="--")
-        for label in auxiliary_classes.global_data.ram_stats:
-            label.config(text="--")
-        for label in auxiliary_classes.global_data.cpu_list:
-            label.config(text="--")
+    def on_closing(self):
+        result = messagebox.askquestion("Exit", "Are  you sure you want to exit?", icon='warning')
+        if result == 'no':
+            return
+        self.disconnect()
+        if not self.queue_running and not self.treeview.project_running():
+            with open("object.pickle", "rb") as r:
+                stored_data = pickle.load(r)
+            saved = False
+            for session_saved in stored_data.stored_sessions:
+                if session_saved.host == self.active_session.host:
+                    session_saved.heap_queue = self.heap_queue
+                    session_saved.projects_list = self.projects_list
+                    saved = True
+            if not saved:
+                stored_data.stored_sessions.append(SessionData(self.active_session.host, self.heap_queue,
+                                                               self.projects_list))
+            with open("object.pickle", "wb") as w:
+                pickle.dump(stored_data, w)
+            exit()
+        elif self.queue_running:
+            messagebox.showwarning("Warning", "Stop the queue before exiting the program.")
+        else:
+            messagebox.showwarning("Warning", "Wait for project to stop running before exiting.")
 
-    @staticmethod
-    def disconnected_ui():
-        auxiliary_classes.global_data.heap_queue = []
-        auxiliary_classes.global_data.projects_queue = []
-        auxiliary_classes.global_data.data_table = []
-        auxiliary_classes.global_data.my_list.update(False)
+    def reset_flags(self):
+        self.task_done = False
+        self.task_stopped = False
+        self.task_canceled = False
+        self.task_denied = False
 
-    @staticmethod
-    def de_pickle_session():
+
+    def disconnected_ui(self):
+        self.heap_queue = []
+        self.projects_list = []
+        self.treeview.update(False)
+
+    def de_pickle_session(self):
         try:
             with open("object.pickle", "rb") as f:
                 stored_data = pickle.load(f)
-                for saved_session in stored_data:
-                    if auxiliary_classes.global_data.host == saved_session[0]:
-                        auxiliary_classes.global_data.heap_queue = saved_session[1]
-                        auxiliary_classes.global_data.projects_queue = saved_session[2]
-                        auxiliary_classes.global_data.data_table = saved_session[3]
-            auxiliary_classes.global_data.my_list.update()
+                if stored_data is not None:
+                    for saved_session in stored_data.stored_sessions:
+                        if self.active_session.host == saved_session.host:
+                            self.heap_queue = saved_session.heap_queue
+                            self.projects_list = saved_session.projects_list
+                self.treeview.update()
         except EOFError:
             pass
-        auxiliary_classes.global_data.progress.step(9.99)
+        self.progress.step(9.99)
 
-    @staticmethod
-    def pickle_session():
-        if not auxiliary_classes.global_data.queue_running and\
-                not auxiliary_classes.global_data.my_list.project_running():
-            try:
-                with open("object.pickle", "rb") as r:
-                    stored_data = pickle.load(r)
-            except EOFError:
-                stored_data = []
+    def count_projects(self):
+        self.project_counter = {"Completed": 0,
+                                "Saved": 0,
+                                "Canceled": 0,
+                                "Running": 0,
+                                "Permission Denied": 0,
+                                "Stopping": 0,
+                                "Queued": 0}
+        for obj in self.projects_list:
+            self.project_counter[obj.status] +=1
+        self.completed_val.config(text=str(self.project_counter['Completed']))
+        self.error_val.config(text=str(
+            self.project_counter['Canceled']
+            + self.project_counter['Permission Denied']))
+        self.warning_val.config(text=str(int(self.project_counter['Saved'])+int(self.project_counter["Stopping"])))
+        self.info_val.config(text=str(self.project_counter['Queued']+int(self.project_counter['Running'])))
+
+    def unpickle_creds(self):
+        if not os.path.exists('object.pickle'):
+            open('object.pickle', 'w+')
+        try:
+            with open("object.pickle", "rb") as r:
+                stored_data = pickle.load(r)
+        except EOFError:
+            with open("object.pickle", "wb") as w:
+                pickle.dump(None, w)
+            stored_data = None
+        if stored_data is not None:
+            self.last_session = SessionConfig(stored_data.last_session)
+            self.last_session_exist = stored_data.last_session_exist
+        else:
+            self.last_session = SessionConfig(None)
+            self.last_session_exist = False
+        self.active_session = self.last_session
+
+    def pickle_creds(self):
+            with open("object.pickle", "rb") as r:
+                saved_sessions = pickle.load(r)
+            if saved_sessions is None:
+                with open("object.pickle", "wb") as w:
+                    pickle.dump(SessionSaver([self.active_session.host,
+                                              self.active_session.user,
+                                              self.active_session.password],
+                                             []),
+                                w)
+                return
+            else:
+                saved_sessions.last_session = [self.active_session.host,
+                                               self.active_session.user,
+                                               self.active_session.password]
+                with open("object.pickle", "wb") as w:
+                    pickle.dump(saved_sessions, w)
+
+    def pickle_session(self):
+        if not self.queue_running and\
+                not self.treeview.project_running():
+            with open("object.pickle", "rb") as r:
+                session_saver = pickle.load(r)
+                r.close()
             saved = False
-            for session_saved in stored_data:
-                if session_saved[0] == auxiliary_classes.global_data.host:
-                    session_saved[1] = auxiliary_classes.global_data.heap_queue
-                    session_saved[2] = auxiliary_classes.global_data.projects_queue
-                    session_saved[3] = auxiliary_classes.global_data.data_table
+            for session_saved in session_saver.stored_sessions:
+                if session_saved.host == self.active_session.host:
+                    session_saved.heap_queue = self.heap_queue
+                    session_saved.projects_list = self.projects_list
                     saved = True
             if not saved:
-                stored_data.append(
-                    [auxiliary_classes.global_data.host,
-                     auxiliary_classes.global_data.heap_queue,
-                     auxiliary_classes.global_data.projects_queue,
-                     auxiliary_classes.global_data.data_table])
+                session_saver.stored_sessions.append(SessionData(self.active_session.host,
+                                                                 self.heap_queue,
+                                                                 self.projects_list))
             with open("object.pickle", "wb") as w:
-                pickle.dump(stored_data, w)
-        elif auxiliary_classes.global_data.queue_running:
+                pickle.dump(session_saver, w)
+                w.close()
+        elif self.queue_running:
             messagebox.showwarning("Warning", "Stop the queue before disconnecting.")
         else:
             messagebox.showwarning("Warning", "Wait for project to stop running disconnecting.")
@@ -641,13 +785,12 @@ class Window(Frame):
     def ask_exit():
         result = messagebox.askquestion("Exit", "Are  you sure you want to exit?", icon='warning')
         if result == 'yes':
-            auxiliary_classes.root.quit()
+            sys.exit
         else:
             return
 
-    @staticmethod
-    def count_queued_project():
-        return len(auxiliary_classes.global_data.heap_queue) + 1
+    def count_queued_project(self):
+        return len(self.heap_queue) + 1
 
     @staticmethod
     def bashify(file_path):
@@ -667,9 +810,10 @@ class Window(Frame):
         h = win.winfo_screenheight()
         win.geometry("400x300+%d+%d" % ((w - 400) / 2, (h - 300) / 2))
 
-    @staticmethod
-    def is_repeated(data):
-        for obj in auxiliary_classes.global_data.projects_queue:
+    def is_repeated(self, data):
+        for obj in self.projects_list:
             if obj.name == data:
                 return True
         return False
+
+
